@@ -1,0 +1,27 @@
+{
+  "name": "prismati",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PrismaTI - diagnóstico inicial de maturidade em TI para PMEs",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
+    "restore": "node --disable-warning=ExperimentalWarning scripts/restore.js",
+    "loadtest": "node --disable-warning=ExperimentalWarning scripts/loadtest.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.13.0",
+    "express": "^5.3.0",
+    "multer": "^2.5.0",
+    "nodemailer": "^10.6.1",
+    "pdfkit": "^0.21.0",
+    "zod": "^4.6.7"
+  }
+}

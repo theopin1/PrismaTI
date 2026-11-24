@@ -1,0 +1,353 @@
+openapi: 3.0.3
+info:
+  title: PrismaTI API
+  version: 1.0.0
+  description: |
+    API do PrismaTI, diagnóstico inicial de maturidade em TI para PMEs.
+
+    - Autenticação por cookie de sessão `prismati_session` (HttpOnly), obtido em `POST /auth/login`.
+    - Requisições que alteram dados (POST, PUT, PATCH, DELETE) exigem o cabeçalho `X-PrismaTI: 1` (proteção contra CSRF).
+    - Erros seguem sempre o formato `Error`. Erros de validação trazem `fields` com a mensagem de cada campo.
+    - Listas administrativas aceitam `page` e `pageSize` (máximo 100) e devolvem `Page`.
+    - Perfis: ADMIN (plataforma), GESTOR (edita e finaliza), TI (somente leitura). Dados de outra empresa respondem 404.
+servers:
+  - url: /api/v1
+security:
+  - session: []
+    csrf: []
+tags:
+  - name: Autenticação
+  - name: Empresa
+  - name: Avaliações
+  - name: Evidências
+  - name: Relatórios
+  - name: Administração
+
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: prismati_session }
+    csrf: { type: apiKey, in: header, name: X-PrismaTI, description: 'Valor fixo "1". Obrigatório em métodos que alteram dados.' }
+  parameters:
+    id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    questionId: { name: questionId, in: path, required: true, schema: { type: string, format: uuid } }
+    page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    pageSize: { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+  responses:
+    Ok: { description: OK, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean } } } } } }
+    Error: { description: Erro, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: VALIDATION_ERROR }
+            message: { type: string }
+            fields: { type: object, additionalProperties: { type: string } }
+            traceId: { type: string }
+    Page:
+      type: object
+      properties:
+        items: { type: array, items: { type: object } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+    Me:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [ADMIN, GESTOR, TI], nullable: true }
+        is_platform_admin: { type: boolean }
+        mfa_enabled: { type: boolean }
+        mfa_setup_required: { type: boolean }
+        company: { type: object, nullable: true, properties: { id: { type: string }, name: { type: string } } }
+    Answer:
+      oneOf:
+        - type: object
+          required: [type, score]
+          properties: { type: { type: string, enum: [SCORE] }, score: { type: integer, minimum: 0, maximum: 4 }, justification: { type: string, maxLength: 2000 } }
+        - type: object
+          required: [type]
+          description: '"Não se aplica". A justificativa é obrigatória para finalizar.'
+          properties: { type: { type: string, enum: [NA] }, justification: { type: string, maxLength: 2000 } }
+        - type: object
+          required: [type]
+          description: '"Não sei informar".'
+          properties: { type: { type: string, enum: [NS] }, justification: { type: string, maxLength: 2000 } }
+    Progress:
+      type: object
+      properties:
+        total_questions: { type: integer }
+        answered: { type: integer }
+        fill_percentage: { type: number }
+        coverage_percentage: { type: number }
+    DimensionResult:
+      type: object
+      properties:
+        code: { type: string, example: GOV }
+        name: { type: string }
+        maturity_percentage: { type: number, nullable: true }
+        classification: { type: string, nullable: true }
+        coverage_percentage: { type: number, nullable: true }
+        fill_percentage: { type: number }
+        total_questions: { type: integer }
+        applicable_questions: { type: integer }
+        scored_questions: { type: integer }
+        total_score: { type: integer }
+        result_status: { type: string, enum: [DISPONIVEL, INDISPONIVEL] }
+    Results:
+      type: object
+      description: Resultado oficial, calculado pelo servidor na finalização e imutável.
+      properties:
+        calculation_version: { type: string, example: calc-1.0.0 }
+        overall_maturity: { type: number, nullable: true }
+        overall_classification: { type: string, enum: [Muito inicial, Inicial, Em desenvolvimento, Estabelecido, Avançado], nullable: true }
+        overall_coverage: { type: number, nullable: true }
+        fill_percentage: { type: number }
+        total_questions: { type: integer }
+        answered_count: { type: integer }
+        scored_count: { type: integer }
+        na_count: { type: integer }
+        ns_count: { type: integer }
+        result_status: { type: string, enum: [APTO_REVISAO, PRELIMINAR, SEM_DADOS] }
+        status_label: { type: string }
+        instrument_version: { type: string }
+        calculated_at: { type: string, format: date-time }
+        dimensions: { type: array, items: { $ref: '#/components/schemas/DimensionResult' } }
+        questions: { type: array, description: Detalhe por pergunta (omitido para o admin quando ADMIN_CAN_VIEW_ANSWERS=false), items: { type: object } }
+    Job:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [QUEUED, PROCESSING, COMPLETED, FAILED] }
+        attempt_count: { type: integer }
+        requested_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
+        error_code: { type: string, nullable: true }
+        can_retry: { type: boolean }
+    ReportContent:
+      type: object
+      description: Estrutura versionada (report-schema-1.0) validada antes de salvar.
+      properties:
+        executive_summary: { type: string }
+        maturity_interpretation: { type: string }
+        dimension_analysis: { type: array, items: { type: object } }
+        strengths: { type: array, items: { type: object } }
+        weaknesses: { type: array, items: { type: object, properties: { basis: { type: string, enum: [Declarado, Inferido] } } } }
+        recommendations: { type: array, items: { type: object, properties: { priority: { type: string, enum: [Alta, Média, Baixa] }, risk: { type: string }, impact: { type: string }, effort: { type: string } } } }
+        action_plan: { type: array, items: { type: object } }
+        roadmap: { type: array, items: { type: object } }
+        limitations: { type: array, items: { type: string } }
+        final_considerations: { type: string }
+    Report:
+      type: object
+      properties:
+        id: { type: string }
+        assessment_id: { type: string }
+        report_version: { type: integer }
+        provider: { type: string, enum: [anthropic, local] }
+        model_name: { type: string }
+        prompt_version: { type: string }
+        output_schema_version: { type: string }
+        generated_at: { type: string, format: date-time }
+        content: { $ref: '#/components/schemas/ReportContent' }
+        official_results: { $ref: '#/components/schemas/Results' }
+    Company:
+      type: object
+      properties:
+        legal_name: { type: string, minLength: 2 }
+        trade_name: { type: string }
+        cnpj: { type: string, description: 14 dígitos (opcional) }
+        sector: { type: string }
+        company_size: { type: string, enum: [Micro, Pequena, Média, ''] }
+        employee_count_range: { type: string, enum: ['1-9', '10-49', '50-99', '100-249', '250+', ''] }
+        contact_email: { type: string, format: email }
+
+paths:
+  /health:
+    get: { tags: [Autenticação], security: [], summary: Verificação de saúde, responses: { '200': { description: OK } } }
+
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      security: [{ csrf: [] }]
+      summary: Entrar. Bloqueia a conta temporariamente após 5 tentativas erradas.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string }, password: { type: string }, mfa_code: { type: string } } } } } }
+      responses:
+        '200': { description: 'Sessão criada, ou `{ mfa_required: true }` quando falta o código de 6 dígitos', content: { application/json: { schema: { type: object, properties: { ok: { type: boolean }, redirect: { type: string }, mfa_required: { type: boolean } } } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/logout:
+    post: { tags: [Autenticação], summary: Sair, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /auth/me:
+    get: { tags: [Autenticação], summary: Usuário atual, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }, '401': { $ref: '#/components/responses/Error' } } }
+  /auth/invitation:
+    get:
+      tags: [Autenticação]
+      security: []
+      summary: Consulta um convite pelo token (antes da ativação)
+      parameters: [{ name: token, in: query, required: true, schema: { type: string } }]
+      responses: { '200': { description: 'E-mail, perfil e empresa do convite' }, '400': { $ref: '#/components/responses/Error' } }
+  /auth/activate:
+    post:
+      tags: [Autenticação]
+      security: [{ csrf: [] }]
+      summary: Ativa a conta pelo convite (token de uso único com validade)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [token, name, password], properties: { token: { type: string }, name: { type: string }, password: { type: string, description: 'Mínimo 10 caracteres, com letras e números' } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' } }
+  /auth/password/forgot:
+    post:
+      tags: [Autenticação]
+      security: [{ csrf: [] }]
+      summary: Pede redefinição de senha. A resposta é a mesma exista ou não o e-mail.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email], properties: { email: { type: string } } } } } }
+      responses: { '200': { description: OK } }
+  /auth/password/reset:
+    post:
+      tags: [Autenticação]
+      security: [{ csrf: [] }]
+      summary: Define nova senha com o token recebido e encerra as outras sessões
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [token, password], properties: { token: { type: string }, password: { type: string } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' } }
+  /auth/mfa/setup:
+    post: { tags: [Autenticação], summary: Gera a chave TOTP, responses: { '200': { description: 'secret e otpauth_url' } } }
+  /auth/mfa/enable:
+    post:
+      tags: [Autenticação]
+      summary: Ativa a verificação em duas etapas
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code], properties: { code: { type: string } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' } }
+  /auth/mfa/disable:
+    post:
+      tags: [Autenticação]
+      summary: Desativa a verificação em duas etapas (bloqueado para admin quando obrigatória)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code], properties: { code: { type: string } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+
+  /company:
+    get: { tags: [Empresa], summary: Dados da empresa do usuário e equipe com acesso (GESTOR, TI), responses: { '200': { description: OK } } }
+  /instruments:
+    get: { tags: [Empresa], summary: Versão publicada do questionário, responses: { '200': { description: OK } } }
+  /instrument-versions/{id}:
+    get: { tags: [Empresa], parameters: [{ $ref: '#/components/parameters/id' }], summary: Metadados de uma versão do questionário, responses: { '200': { description: OK } } }
+  /instrument-versions/{id}/questions:
+    get: { tags: [Empresa], parameters: [{ $ref: '#/components/parameters/id' }], summary: Dimensões, perguntas, alternativas, orientações e referências, responses: { '200': { description: OK } } }
+
+  /assessments:
+    get: { tags: [Avaliações], summary: Avaliações da empresa com resultado resumido, responses: { '200': { description: OK } } }
+    post:
+      tags: [Avaliações]
+      summary: Inicia uma avaliação (somente GESTOR). Se já houver uma em andamento, devolve a existente com 200.
+      responses: { '201': { description: Criada }, '200': { description: Já existente }, '403': { $ref: '#/components/responses/Error' } }
+  /assessments/{id}:
+    get: { tags: [Avaliações], parameters: [{ $ref: '#/components/parameters/id' }], summary: Detalhe com respostas, evidências, progresso e can_edit, responses: { '200': { description: OK }, '404': { $ref: '#/components/responses/Error' } } }
+  /assessments/{id}/progress:
+    get: { tags: [Avaliações], parameters: [{ $ref: '#/components/parameters/id' }], summary: Progresso, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Progress' } } } } } }
+  /assessments/{id}/answers/{questionId}:
+    put:
+      tags: [Avaliações]
+      summary: Salva (cria ou substitui) a resposta de uma pergunta. Somente o GESTOR responsável, com a avaliação em andamento.
+      parameters: [{ $ref: '#/components/parameters/id' }, { $ref: '#/components/parameters/questionId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Answer' } } } }
+      responses: { '200': { description: Salva, com progresso atualizado }, '400': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /assessments/{id}/finalize:
+    post:
+      tags: [Avaliações]
+      summary: Finaliza e calcula o resultado oficial. Idempotente. Exige todas as perguntas respondidas e justificativa nos "Não se aplica".
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses: { '200': { description: 'ok, already_finalized e results' }, '400': { $ref: '#/components/responses/Error' } }
+  /assessments/{id}/results:
+    get: { tags: [Avaliações], parameters: [{ $ref: '#/components/parameters/id' }], summary: Resultado oficial, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Results' } } } }, '404': { $ref: '#/components/responses/Error' } } }
+
+  /assessments/{id}/answers/{questionId}/evidences:
+    get: { tags: [Evidências], parameters: [{ $ref: '#/components/parameters/id' }, { $ref: '#/components/parameters/questionId' }], summary: Evidências da resposta, responses: { '200': { description: 'items e status (ENVIADA, INDICADA, NAO_INFORMADA)' } } }
+    post:
+      tags: [Evidências]
+      summary: 'Registra evidência: arquivo (PDF, PNG ou JPG até 5 MB, conteúdo validado), descrição ou declaração de que existe'
+      parameters: [{ $ref: '#/components/parameters/id' }, { $ref: '#/components/parameters/questionId' }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { type: object, required: [evidence_type], properties: { evidence_type: { type: string, enum: [FILE, TEXT, DECLARED] }, description: { type: string }, file: { type: string, format: binary } } }
+      responses: { '201': { description: Criada }, '400': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /evidences/{id}/download:
+    get: { tags: [Evidências], parameters: [{ $ref: '#/components/parameters/id' }], summary: Baixa o arquivo (registrado em auditoria), responses: { '200': { description: Arquivo } } }
+  /evidences/{id}:
+    delete: { tags: [Evidências], parameters: [{ $ref: '#/components/parameters/id' }], summary: Remove evidência (avaliação em andamento), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /assessments/{id}/reports:
+    get: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Versões de relatório e solicitações, responses: { '200': { description: 'reports e jobs' } } }
+    post:
+      tags: [Relatórios]
+      summary: Solicita relatório por IA (somente GESTOR, avaliação finalizada). Processamento assíncrono.
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses: { '202': { description: Na fila, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } }, '409': { $ref: '#/components/responses/Error' }, '429': { $ref: '#/components/responses/Error' } }
+  /report-jobs/{id}:
+    get: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Situação da solicitação, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } } } }
+  /report-jobs/{id}/retry:
+    post: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Nova tentativa de uma solicitação com falha (somente GESTOR), responses: { '202': { description: Na fila } } }
+  /reports/{id}:
+    get: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Relatório com os resultados oficiais, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } } } }
+  /reports/{id}/pdf:
+    get: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Exporta o relatório em PDF (GESTOR ou admin), responses: { '200': { description: PDF, content: { application/pdf: {} } }, '403': { $ref: '#/components/responses/Error' } } }
+
+  /admin/companies:
+    get: { tags: [Administração], parameters: [{ name: q, in: query, schema: { type: string } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Lista empresas, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Page' } } } } } }
+    post: { tags: [Administração], summary: Cadastra empresa, requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Company' } } } }, responses: { '201': { description: Criada } } }
+  /admin/companies/{id}:
+    get: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Empresa com usuários, convites, avaliações e uso de IA, responses: { '200': { description: OK } } }
+    patch: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Edita empresa, requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Company' } } } }, responses: { '200': { description: OK } } }
+  /admin/companies/{id}/status:
+    patch: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Ativa ou inativa (preserva histórico e encerra sessões), requestBody: { content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [ACTIVE, INACTIVE] } } } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/users:
+    get: { tags: [Administração], parameters: [{ name: q, in: query, schema: { type: string } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Lista usuários, responses: { '200': { description: OK } } }
+  /admin/users/{id}/status:
+    patch: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Ativa ou inativa usuário, requestBody: { content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [ACTIVE, INACTIVE] } } } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/memberships:
+    patch: { tags: [Administração], summary: Altera perfil ou desvincula usuário da empresa, requestBody: { content: { application/json: { schema: { type: object, required: [user_id, company_id], properties: { user_id: { type: string }, company_id: { type: string }, role: { type: string, enum: [GESTOR, TI] }, status: { type: string, enum: [ACTIVE, INACTIVE] } } } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/invitations:
+    post:
+      tags: [Administração]
+      summary: Envia convite (um Gestor por empresa). Fora de produção e sem SMTP, devolve activation_link.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [company_id, email, role], properties: { company_id: { type: string }, email: { type: string }, name: { type: string }, role: { type: string, enum: [GESTOR, TI] } } } } } }
+      responses: { '201': { description: 'ok, delivered, activation_link' }, '400': { $ref: '#/components/responses/Error' } }
+  /admin/invitations/{id}/resend:
+    post: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Reenvia (gera novo token e invalida o anterior), responses: { '200': { description: OK } } }
+  /admin/invitations/{id}/revoke:
+    post: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Revoga convite pendente, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/instrument-versions:
+    get: { tags: [Administração], summary: Versões do questionário, responses: { '200': { description: OK } } }
+  /admin/instrument-versions/{id}:
+    get: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Versão completa, responses: { '200': { description: OK } } }
+  /admin/instrument-versions/{id}/clone:
+    post: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Cria rascunho a partir de uma versão, requestBody: { content: { application/json: { schema: { type: object, properties: { version: { type: string, example: '1.1' } } } } } }, responses: { '201': { description: Criada } } }
+  /admin/instrument-versions/{id}/publish:
+    post: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Publica o rascunho e arquiva a versão anterior, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/instrument-versions/{vid}/dimensions/{did}:
+    patch:
+      tags: [Administração]
+      summary: Edita dimensão (somente rascunho)
+      parameters: [{ name: vid, in: path, required: true, schema: { type: string } }, { name: did, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, description: { type: string } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } }
+  /admin/instrument-versions/{vid}/questions/{qid}:
+    patch:
+      tags: [Administração]
+      summary: Edita pergunta, alternativas (exatamente 5, notas 0 a 4) e referências (somente rascunho)
+      parameters: [{ name: vid, in: path, required: true, schema: { type: string } }, { name: qid, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } }
+  /admin/assessments:
+    get: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Todas as avaliações, responses: { '200': { description: OK } } }
+  /admin/report-jobs:
+    get: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Solicitações de relatório, responses: { '200': { description: OK } } }
+  /admin/audit-logs:
+    get: { tags: [Administração], parameters: [{ name: action, in: query, schema: { type: string } }, { name: company_id, in: query, schema: { type: string } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Registros de auditoria, responses: { '200': { description: OK } } }
+  /admin/ai-usage:
+    get: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Consumo de IA, totais do mês e limites, responses: { '200': { description: OK } } }

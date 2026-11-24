@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar · PrismaTI</title>
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Manrope:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="entrar">
+<div class="auth-wrap">
+<aside class="auth-side">
+  <a class="logo" href="/"><img src="/img/logo.svg" width="26" height="26" alt=""> <span>Prisma<b>TI</b></span></a>
+  <div><span class="eyebrow" style="color:#b9c8e6">Diagnóstico inteligente de TI</span>
+  <h2>Clareza para decidir.<br><span class="hl-soft">Direção para evoluir.</span></h2>
+  <p>O acesso ao PrismaTI é liberado para empresas contratantes, por convite individual enviado por e-mail.</p></div>
+  <p class="small">© 2026 PrismaTI · <a href="/privacidade.html" style="color:#cfe0ff">Privacidade e uso de dados</a></p>
+</aside>
+<main class="auth-main">
+<form class="auth-card" id="form" novalidate>
+  <h1>Entrar</h1><p class="muted">Use o e-mail e a senha criados na ativação do seu convite.</p>
+  <div class="ok-box" id="ok"></div>
+  <div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="username" required></div>
+  <div class="field"><label for="password">Senha</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+  <div class="field" id="mfa-field" hidden><label for="mfa_code">Código de verificação (aplicativo autenticador)</label><input id="mfa_code" name="mfa_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div>
+  <div class="alert"></div>
+  <button class="btn btn-block" type="submit">Entrar</button>
+  <div class="auth-links"><a href="/esqueci.html">Esqueci minha senha</a><a href="/">Voltar ao site</a></div>
+  <p class="small muted" style="margin:18px 0 0">Ainda não tem acesso? A liberação é feita após a contratação de um plano. <a href="/#planos" style="color:var(--blue-2)">Ver planos</a></p>
+</form>
+</main>
+</div>
+<script type="module" src="/js/auth.js"></script>
+</body>
+</html>

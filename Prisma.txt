@@ -1,0 +1,1754 @@
+﻿DOCUMENTO PRISMA
+1. INTRODUÇÃO
+1.1. Visão geral
+O PrismaTI é uma plataforma digital voltada à avaliação inicial da maturidade das práticas de gestão, governança e segurança da Tecnologia da Informação em pequenas e médias empresas (PMEs).
+A solução utiliza como referências boas práticas do COBIT, ISO/IEC 27001 e 27002, ITIL e CMMI, adaptadas para um questionário acessível a gestores que não possuem necessariamente conhecimentos técnicos aprofundados.
+O objetivo é identificar pontos fortes, fragilidades e oportunidades de melhoria, apresentando resultados quantitativos e orientações práticas para auxiliar a tomada de decisões.
+1.2. Objetivo e funcionalidades
+A plataforma deverá permitir:
+* Cadastro e acesso de empresas previamente autorizadas;
+* Aplicação de um questionário de maturidade em TI;
+* Registro de respostas e evidências;
+* Cálculo automatizado da maturidade geral e por dimensão;
+* Geração de relatórios interpretativos com inteligência artificial;
+* Identificação e priorização de recomendações pela IA;
+* Elaboração de planos de ação e roadmaps de melhoria.
+O backend será responsável pelo armazenamento das informações, controle de acesso e cálculos de maturidade. A inteligência artificial realizará a interpretação dos resultados e a elaboração das recomendações, sem modificar as pontuações oficiais.
+1.3. Instrumento de avaliação
+A versão inicial utilizará um questionário composto por 30 perguntas, organizadas em sete dimensões:
+1. Governança e riscos — 4 perguntas;
+2. Dados e pessoas — 4 perguntas;
+3. Acessos e proteção — 5 perguntas;
+4. Backup e continuidade — 4 perguntas;
+5. Serviços e fornecedores — 5 perguntas;
+6. Projetos, mudanças e qualidade — 5 perguntas;
+7. Medição e melhoria — 3 perguntas.
+Cada pergunta terá cinco alternativas específicas, pontuadas de 0 a 4, além das opções "Não se aplica" (NA) e "Não sei informar" (NS).
+A metodologia de cálculo será definida na Seção 6.
+1.4. Público-alvo e limitações
+O PrismaTI será direcionado a pequenas e médias empresas que desejam compreender e melhorar suas práticas de TI mesmo sem entender da área.
+A plataforma deverá utilizar linguagem clara, explicações acessíveis e exemplos de evidências para facilitar o preenchimento.
+Os resultados terão caráter orientativo e não representarão auditoria, certificação ou declaração oficial de conformidade com os frameworks utilizados.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2. PERFIS DE USUÁRIOS E CONTROLE DE ACESSO
+2.1. Visão geral
+O PrismaTI será uma plataforma de acesso restrito. As empresas serão cadastradas por administradores após a confirmação da contratação do serviço.
+O processo comercial ocorrerá externamente à plataforma no MVP, sem integração obrigatória com gateways de pagamento.
+Após a liberação do acesso, os usuários receberão convites individuais para ativação de suas contas.
+O sistema possuirá três perfis:
+* Administrador da Plataforma;
+* Gestor da Empresa;
+* Responsável de TI.
+2.2. Administrador da Plataforma
+Será responsável pela administração geral do PrismaTI.
+Poderá:
+* Cadastrar, editar, ativar e inativar empresas;
+* Cadastrar usuários e gerenciar seus vínculos;
+* Enviar, reenviar e revogar convites;
+* Criar, editar e publicar versões do questionário;
+* Gerenciar dimensões, perguntas, alternativas e referências;
+* Acompanhar avaliações e relatórios;
+* Consultar registros administrativos e de auditoria.
+O acesso do Administrador a respostas e evidências empresariais deverá respeitar as permissões e os controles de segurança estabelecidos.
+2.3. Gestor da Empresa
+O Gestor será o responsável oficial pela avaliação da empresa.
+Poderá:
+* Iniciar e preencher avaliações;
+* Salvar e modificar respostas antes da finalização;
+* Registrar justificativas e evidências;
+* Consultar o andamento do preenchimento;
+* Finalizar a avaliação;
+* Visualizar resultados e histórico;
+* Solicitar, consultar e exportar relatórios;
+* Consultar recomendações e roadmaps gerados pela IA.
+Somente o Gestor responsável poderá modificar e finalizar sua avaliação.
+2.4. Responsável de TI
+O Responsável de TI poderá ser um colaborador interno ou prestador de serviço autorizado pela empresa.
+Sua função será auxiliar tecnicamente o Gestor.
+Poderá:
+* Consultar o questionário e suas explicações;
+* Visualizar as respostas e evidências autorizadas;
+* Consultar resultados, relatórios e recomendações;
+* Orientar o Gestor por meios externos à plataforma.
+O Responsável de TI não poderá iniciar ou finalizar avaliações, modificar respostas, anexar evidências ou gerenciar usuários.
+Não haverá chat interno, comentários ou edição colaborativa no MVP.
+A participação desse perfil será opcional.
+2.5. Matriz de permissões
+
+
+
+
+
+
+Componente
+	Responsabilidade
+	Frontend
+	Interface dos Administradores, Gestores e Responsáveis de TI
+	Backend
+	Regras de negócio, autorizações, avaliações e integrações
+	Banco de dados
+	Armazenamento das informações estruturadas
+	Armazenamento de arquivos
+	Proteção e recuperação das evidências anexadas
+	Serviço de IA
+	Geração de relatórios, recomendações e roadmaps
+	Processamento assíncrono
+	Execução de tarefas de geração de relatórios
+	Serviço de e-mail
+	Envio de convites e recuperação de acesso
+	2.6. Regras gerais de acesso
+1. Não haverá cadastro público de empresas no MVP.
+2. O primeiro acesso dos usuários externos dependerá de convite válido.
+3. Cada usuário deverá utilizar credenciais individuais.
+4. O backend deverá validar as permissões em todas as operações protegidas.
+5. Usuários empresariais somente poderão acessar dados de sua empresa.
+6. Usuários e empresas inativados perderão o acesso às funcionalidades protegidas.
+7. A inativação não deverá excluir automaticamente o histórico das avaliações.
+8. A plataforma deverá preservar registros das operações administrativas e alterações relevantes.
+Os requisitos funcionais detalhados de autenticação e autorização estão definidos na Seção 4. Os controles técnicos de segurança estão estabelecidos na Seção 9.
+
+
+3. FLUXO DE UTILIZAÇÃO DA PLATAFORMA
+3.1. Cadastro e acesso
+O acesso ao PrismaTI será restrito a empresas previamente cadastradas pela administração, após a confirmação manual da contratação do serviço. A integração com meios de pagamento não fará parte do MVP.
+O Administrador cadastrará a empresa, vinculará o Gestor e, opcionalmente, o Responsável de TI. Os usuários receberão convites individuais para ativação de suas contas.
+Após a autenticação, cada usuário terá acesso às funcionalidades permitidas pelo seu perfil, conforme a Seção 2.
+3.2. Painel da empresa
+O painel deverá apresentar as informações cadastrais, a avaliação em andamento, o progresso do preenchimento, o histórico de avaliações e os resultados disponíveis.
+Também deverá permitir a consulta aos relatórios, recomendações e roadmaps gerados pela inteligência artificial, respeitando as permissões do usuário.
+3.3. Início e controle das avaliações
+O Gestor poderá iniciar uma avaliação utilizando a versão publicada do instrumento PrismaTI.
+Cada empresa poderá possuir somente uma avaliação em andamento. Caso já exista uma, o Gestor deverá continuar o preenchimento existente.
+Ao criar uma avaliação, o backend deverá registrar a empresa, o Gestor responsável, a versão do questionário, as datas relevantes e sua situação.
+Uma nova avaliação somente poderá ser iniciada após a finalização da anterior. As avaliações concluídas permanecerão disponíveis no histórico.
+3.4. Preenchimento e evidências
+O Gestor será o único responsável por registrar e modificar respostas, justificativas e evidências.
+O formulário deverá apresentar as 30 perguntas organizadas em sete dimensões, com alternativas específicas de 0 a 4, opções "Não se aplica" (NA) e "Não sei informar" (NS), explicações e exemplos de comprovação.
+As respostas poderão ser salvas individualmente, permitindo interromper e retomar o preenchimento.
+O registro de evidências será opcional e poderá ocorrer por meio de anexos, descrições ou indicação de documentos existentes.
+O sistema deverá apresentar o progresso da avaliação, distinguindo perguntas preenchidas da cobertura utilizada no cálculo da maturidade.
+O Responsável de TI poderá consultar perguntas, respostas e evidências autorizadas, mas não poderá modificá-las. Seu apoio ocorrerá por meios externos à plataforma.
+3.5. Finalização e cálculo
+Somente o Gestor responsável poderá finalizar a avaliação.
+Antes da finalização, o backend deverá verificar as permissões, a validade das respostas e a presença de justificativas para respostas NA.
+Todas as perguntas deverão possuir uma resposta válida, incluindo NA ou NS quando necessário.
+Após a confirmação, o sistema deverá:
+1. Bloquear a edição das respostas e evidências;
+2. Calcular a maturidade geral e por dimensão;
+3. Calcular os indicadores de cobertura;
+4. Armazenar os resultados;
+5. Registrar a avaliação como finalizada;
+6. Disponibilizar os resultados para consulta.
+A finalização deverá preservar a integridade dos dados mesmo diante de falhas ou requisições repetidas.
+As fórmulas e os critérios de classificação estão definidos na Seção 6.
+3.6. Relatório e recomendações por IA
+Após a finalização, o Gestor poderá solicitar a geração de um relatório com inteligência artificial.
+O backend fornecerá as respostas e os resultados oficiais para que a IA produza a interpretação do diagnóstico, identifique fragilidades, priorize recomendações e elabore um plano de ação e roadmap de melhorias.
+A geração ocorrerá de forma assíncrona. Uma falha no serviço de IA não poderá alterar as respostas nem comprometer os resultados numéricos já calculados.
+O Gestor poderá consultar e exportar o relatório gerado. O Responsável de TI terá acesso de leitura aos relatórios autorizados.
+3.7. Estados e histórico
+A avaliação possuirá dois estados principais:
+* Em andamento: permite preenchimento e edição pelo Gestor.
+* Finalizada: respostas bloqueadas e resultados quantitativos disponíveis.
+A geração do relatório possuirá controle independente, com as situações: Não solicitado, Em fila, Processando, Concluído e Falha.
+Uma falha na geração do relatório não deverá reabrir a avaliação.
+Todas as avaliações finalizadas deverão permanecer vinculadas às suas respostas, evidências, resultados, relatórios e versões do instrumento.
+A comparação avançada entre diferentes avaliações será considerada uma funcionalidade futura.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+4. REQUISITOS FUNCIONAIS
+4.1. Organização dos requisitos
+Esta seção apresenta os requisitos funcionais do backend do PrismaTI, organizados por módulo.
+As prioridades serão:
+* P0 — Obrigatório: necessário para a conclusão do MVP.
+* P2 — Futuro: funcionalidade prevista para versões posteriores.
+Todos os requisitos abaixo possuem prioridade P0, salvo indicação expressa de P2.
+As regras de negócio, fórmulas, estruturas de dados e critérios de aceitação serão detalhados nas respectivas seções deste documento.
+4.2. Autenticação e usuários
+
+
+ID
+	Requisito
+	RF-001
+	Autenticar usuários cadastrados.
+	RF-002
+	Permitir o cadastro de usuários por administradores.
+	RF-003
+	Gerar e enviar convites individuais e temporários.
+	RF-004
+	Ativar contas mediante validação de convite.
+	RF-005
+	Permitir recuperação segura de senha.
+	RF-006
+	Ativar e inativar usuários.
+	RF-007
+	Validar as permissões do usuário em operações protegidas.
+	O acesso empresarial será realizado exclusivamente por convite. Não haverá cadastro público no MVP.
+4.3. Empresas
+
+
+ID
+	Requisito
+	RF-008
+	Cadastrar empresas autorizadas a utilizar a plataforma.
+	RF-009
+	Consultar e atualizar dados cadastrais.
+	RF-010
+	Ativar e inativar empresas.
+	RF-011
+	Vincular usuários às respectivas empresas.
+	RF-012
+	Consultar avaliações vinculadas à empresa.
+	O acesso será liberado administrativamente após a confirmação da contratação, realizada fora da plataforma no MVP.
+O sistema deverá impedir o acesso a informações de outras empresas.
+4.4. Gestão do questionário
+
+
+ID
+	Requisito
+	RF-013
+	Cadastrar e editar dimensões.
+	RF-014
+	Cadastrar perguntas e explicações.
+	RF-015
+	Configurar alternativas e pontuações.
+	RF-016
+	Associar perguntas às referências metodológicas.
+	RF-017
+	Cadastrar exemplos e orientações sobre evidências.
+	RF-018
+	Criar e publicar versões do instrumento.
+	RF-019
+	Preservar versões utilizadas em avaliações anteriores.
+	Cada pergunta deverá conter suas cinco alternativas específicas, pontuadas de 0 a 4, além das opções NA e NS.
+Versões publicadas e utilizadas não poderão ser alteradas retroativamente.
+4.5. Avaliações
+
+
+ID
+	Requisito
+	RF-020
+	Permitir que o Gestor inicie avaliações.
+	RF-021
+	Vincular a avaliação à empresa, ao Gestor e à versão do instrumento.
+	RF-022
+	Registrar e atualizar respostas durante o preenchimento.
+	RF-023
+	Salvar respostas parcialmente.
+	RF-024
+	Registrar justificativas quando necessárias.
+	RF-025
+	Tratar respostas NA e NS.
+	RF-026
+	Permitir consulta somente leitura pelo Responsável de TI.
+	RF-027
+	Disponibilizar indicadores de progresso.
+	RF-028
+	Validar e finalizar avaliações.
+	RF-029
+	Impedir alterações após a finalização.
+	Cada empresa poderá possuir somente uma avaliação em andamento.
+Somente o Gestor responsável poderá modificar respostas e finalizar a avaliação.
+A finalização deverá preservar a integridade dos dados e impedir a duplicação de resultados.
+4.6. Evidências
+
+
+ID
+	Requisito
+	Prioridade
+	RF-030
+	Permitir anexar evidências às respostas.
+	P0
+	RF-031
+	Permitir indicar ou descrever evidências não anexadas.
+	P0
+	RF-032
+	Registrar metadados e a situação das evidências.
+	P0
+	RF-033
+	Permitir remover evidências antes da finalização.
+	P0
+	RF-034
+	Proteger arquivos por empresa e perfil de acesso.
+	P0
+	RF-035
+	Permitir a conferência humana formal de evidências.
+	P2
+	O fornecimento de evidências será opcional no MVP e não alterará automaticamente a pontuação declarada.
+Não haverá processo interno de conferência humana de evidências na versão inicial.
+4.7. Cálculo e diagnóstico
+
+
+ID
+	Requisito
+	RF-036
+	Calcular a pontuação individual das perguntas.
+	RF-037
+	Calcular a maturidade por dimensão.
+	RF-038
+	Calcular a maturidade geral da empresa.
+	RF-039
+	Calcular a cobertura e os indicadores de preenchimento.
+	RF-040
+	Aplicar o tratamento metodológico de NA e NS.
+	RF-041
+	Identificar dimensões sem informações suficientes.
+	RF-042
+	Armazenar os resultados e a versão das regras de cálculo.
+	RF-043
+	Disponibilizar os resultados para consulta autorizada.
+	Todos os cálculos deverão seguir a metodologia da Seção 6.
+A inteligência artificial não poderá calcular ou substituir as pontuações oficiais.
+4.8. Relatórios e recomendações por IA
+
+
+ID
+	Requisito
+	RF-044
+	Gerar relatórios interpretativos utilizando inteligência artificial.
+	RF-045
+	Utilizar respostas e resultados oficiais como base para a geração.
+	RF-046
+	Gerar fragilidades, recomendações priorizadas, plano de ação e roadmap por IA.
+	RF-047
+	Registrar e disponibilizar o estado de processamento do relatório.
+	RF-048
+	Permitir novas tentativas controladas após falhas.
+	RF-049
+	Armazenar e disponibilizar relatórios para consulta.
+	RF-050
+	Permitir exportação do relatório em PDF.
+	A IA será responsável pela análise qualitativa, priorização das melhorias e elaboração do roadmap.
+O backend será responsável por fornecer os dados, controlar o processamento, validar a estrutura do retorno e armazenar os relatórios.
+Falhas na IA não poderão comprometer os resultados numéricos da avaliação.
+4.9. Controle de consumo da IA e assistente futuro
+
+
+ID
+	Requisito
+	Prioridade
+	RF-051
+	Disponibilizar perguntas ao assistente de IA.
+	P2
+	RF-052
+	Esclarecer dúvidas sobre perguntas e alternativas.
+	P2
+	RF-053
+	Explicar resultados e recomendações por meio do assistente.
+	P2
+	RF-054
+	Utilizar o contexto autorizado da avaliação no assistente.
+	P2
+	RF-055
+	Registrar consumo de tokens e custos estimados das operações de IA.
+	P0
+	RF-056
+	Aplicar limites configuráveis de utilização da IA.
+	P0
+	O assistente conversacional não fará parte do MVP.
+O monitoramento de tokens, custos e limites permanecerá obrigatório, pois será necessário para controlar a geração dos relatórios.
+4.10. Histórico e auditoria
+
+
+ID
+	Requisito
+	Prioridade
+	RF-057
+	Preservar avaliações concluídas.
+	P0
+	RF-058
+	Registrar alterações relevantes em respostas e avaliações.
+	P0
+	RF-059
+	Registrar operações administrativas relevantes.
+	P0
+	RF-060
+	Permitir consulta autorizada ao histórico da empresa.
+	P0
+	RF-061
+	Comparar resultados entre avaliações em períodos diferentes.
+	P2
+	As avaliações concluídas deverão preservar suas versões de questionário, respostas, evidências, cálculos e relatórios.
+4.11. Referências para implementação
+A implementação dos requisitos deverá observar:
+* Seção 5: estrutura do questionário, respostas e evidências;
+* Seção 6: fórmulas e critérios de maturidade;
+* Seção 7: relatórios, recomendações e roadmap por IA;
+* Seção 8: dados, relacionamentos e integrações;
+* Seção 9: requisitos não funcionais;
+* Seção 10: escopo e critérios de aceitação do MVP.
+O cumprimento dos requisitos P0 será necessário para considerar o MVP funcionalmente concluído.
+
+
+
+
+5. INSTRUMENTO DE AVALIAÇÃO E EVIDÊNCIAS
+5.1. Estrutura do instrumento
+O PrismaTI utilizará inicialmente um questionário de 30 perguntas, distribuídas em sete dimensões:
+
+
+Dimensão
+	Perguntas
+	Governança e riscos
+	4
+	Dados e pessoas
+	4
+	Acessos e proteção
+	5
+	Backup e continuidade
+	4
+	Serviços e fornecedores
+	5
+	Projetos, mudanças e qualidade
+	5
+	Medição e melhoria
+	3
+	Total
+	30
+	Cada pergunta deverá possuir:
+* Identificador e código único na versão (ex.: P01);
+* Dimensão e ordem de apresentação;
+* Texto e explicação em linguagem acessível;
+* Cinco alternativas específicas, pontuadas de 0 a 4;
+* Opções "Não se aplica" (NA) e "Não sei informar" (NS);
+* Exemplos de evidências e orientações de comprovação;
+* Referências metodológicas aos frameworks utilizados.
+O instrumento deverá seguir a matriz oficial de perguntas do PrismaTI.
+5.2. Alternativas e respostas
+Cada pergunta terá cinco alternativas com descrições próprias, representando níveis crescentes de implementação da prática avaliada.
+A escala será:
+
+
+Nota
+	Significado
+	0
+	Prática inexistente
+	1
+	Prática informal ou reativa
+	2
+	Prática parcialmente implementada
+	3
+	Prática estabelecida e aplicada regularmente
+	4
+	Prática monitorada e melhorada
+	Além dessas alternativas, serão permitidas:
+NA — Não se aplica: utilizada quando a prática não se aplica à empresa. Exige justificativa.
+NS — Não sei informar: utilizada quando o Gestor não possui informações suficientes para responder.
+NA e NS não possuem pontuação numérica. Seu tratamento nos cálculos será definido na Seção 6.
+5.3. Orientações e registro de evidências
+Cada pergunta deverá apresentar exemplos práticos de evidências que ajudem o Gestor a compreender como comprovar sua resposta.
+O sistema deverá permitir três formas de registro:
+1. Arquivo: envio de documento ou imagem.
+2. Descrição: texto informando a evidência disponível.
+3. Indicação: declaração de que a evidência existe, mas não pode ser compartilhada.
+O envio de evidências será opcional no MVP e não alterará automaticamente a nota declarada.
+Os registros deverão estar vinculados à resposta correspondente e poderão ser consultados por usuários autorizados.
+5.4. Situação e proteção das evidências
+O sistema deverá distinguir:
+
+
+Situação
+	Significado
+	Não informada
+	Nenhuma evidência registrada
+	Indicada
+	Evidência descrita ou declarada pelo Gestor
+	Enviada
+	Arquivo anexado à resposta
+	No MVP, não haverá conferência humana formal nem classificação automática das evidências como comprovadas.
+Os arquivos deverão ser privados, com acesso controlado pelo backend. Formatos e tamanhos permitidos deverão ser validados.
+O formulário deverá orientar o usuário a não compartilhar senhas, códigos de autenticação, credenciais ou informações sensíveis desnecessárias.
+5.5. Preenchimento e finalização
+Somente o Gestor responsável poderá responder perguntas, registrar justificativas, adicionar evidências e modificar informações durante a avaliação.
+O Responsável de TI terá acesso exclusivamente para consulta e poderá auxiliar o Gestor por meios externos à plataforma.
+As respostas poderão ser salvas individualmente, permitindo a continuidade do preenchimento em sessões posteriores.
+Para finalizar a avaliação:
+* Todas as perguntas deverão possuir uma resposta válida de 0 a 4, NA ou NS;
+* Respostas NA deverão possuir justificativa;
+* O usuário deverá possuir permissão de finalização;
+* A avaliação deverá estar em andamento.
+Após a finalização, as respostas e evidências utilizadas no diagnóstico ficarão bloqueadas para edição.
+As regras completas do fluxo estão definidas na Seção 3.
+5.6. Versionamento e referências
+Cada avaliação deverá permanecer vinculada à versão do instrumento utilizada em seu início.
+Alterações em perguntas, alternativas ou pontuações não poderão modificar avaliações já realizadas. Novas alterações publicadas deverão gerar outra versão.
+Uma pergunta poderá estar vinculada a referências de COBIT, ISO/IEC 27001 e 27002, ITIL e CMMI, mantendo a identificação das versões e práticas utilizadas.
+Independentemente da quantidade de referências associadas, cada pergunta contribuirá apenas uma vez para o cálculo da maturidade.
+5.7. Regras de integridade
+O backend deverá garantir que:
+* As respostas pertençam à versão correta do instrumento;
+* Cada pergunta possua uma única resposta atual por avaliação;
+* As alternativas selecionadas sejam válidas;
+* Apenas usuários autorizados acessem ou alterem os dados;
+* As evidências pertençam à empresa e à avaliação corretas;
+* Respostas e evidências sejam preservadas após a finalização;
+* As versões históricas do instrumento permaneçam íntegras.
+Os requisitos funcionais estão relacionados na Seção 4. As regras de segurança e armazenamento estão detalhadas nas Seções 8 e 9.
+
+
+
+
+6. REGRAS DE CÁLCULO E MATURIDADE
+6.1. Objetivo e responsabilidades
+O backend será responsável por calcular os indicadores quantitativos das avaliações do PrismaTI, utilizando as respostas registradas no questionário.
+Serão calculados:
+* Pontuação individual das perguntas;
+* Maturidade por dimensão;
+* Maturidade geral;
+* Percentual de preenchimento;
+* Cobertura das respostas;
+* Situação de suficiência do diagnóstico.
+Os cálculos serão determinísticos e deverão produzir resultados iguais para entradas e versões metodológicas idênticas.
+A inteligência artificial utilizará esses resultados para gerar interpretações, recomendações e roadmaps, sem modificar as pontuações oficiais.
+6.2. Pontuação e tipos de resposta
+Cada pergunta possuirá alternativas numéricas de 0 a 4.
+A pontuação percentual individual será calculada por:
+Pontuação (%) = (Nota / 4) × 100
+
+
+Nota
+	Percentual
+	0
+	0%
+	1
+	25%
+	2
+	50%
+	3
+	75%
+	4
+	100%
+	O backend deverá diferenciar:
+
+
+Tipo de resposta
+	Tratamento no cálculo
+	Numérica (0 a 4)
+	Participa do cálculo de maturidade
+	NA justificada
+	Excluída do cálculo por não aplicabilidade
+	NS
+	Não recebe nota e reduz a cobertura
+	Sem resposta
+	Não recebe nota e impede a finalização
+	A nota zero é uma resposta válida e não poderá ser utilizada para representar NA, NS ou ausência de resposta.
+6.3. Maturidade por dimensão
+Cada dimensão será calculada com base exclusivamente nas respostas numéricas válidas.
+Fórmula:
+Maturidade da dimensão (%) = [Soma das notas numéricas / (Quantidade de respostas numéricas × 4)] × 100
+Exemplo:
+Uma dimensão possui quatro perguntas:
+
+
+Pergunta
+	Resposta
+	P01
+	3
+	P02
+	1
+	P03
+	NA justificada
+	P04
+	NS
+	Somente duas respostas possuem nota numérica.
+Soma das notas: 3 + 1 = 4.
+Pontuação máxima considerada: 2 × 4 = 8.
+Maturidade = (4 / 8) × 100 = 50%.
+A pergunta NA não participa do cálculo. A pergunta NS também não recebe pontuação, mas permanece considerada no indicador de cobertura.
+Caso uma dimensão não possua respostas numéricas válidas, sua maturidade será registrada como indisponível, e não como 0%.
+6.4. Maturidade geral
+A maturidade geral será calculada pela média aritmética simples das dimensões com resultados válidos.
+Fórmula:
+Maturidade geral (%) = Soma das maturidades válidas / Quantidade de dimensões com maturidade válida
+As sete dimensões terão inicialmente pesos iguais, independentemente da quantidade de perguntas de cada uma.
+Exemplo:
+
+
+Dimensão
+	Maturidade
+	Governança e riscos
+	50%
+	Dados e pessoas
+	65%
+	Acessos e proteção
+	40%
+	Backup e continuidade
+	75%
+	Serviços e fornecedores
+	60%
+	Projetos, mudanças e qualidade
+	45%
+	Medição e melhoria
+	70%
+	Maturidade geral = (50 + 65 + 40 + 75 + 60 + 45 + 70) / 7
+Resultado: 57,86%.
+Uma dimensão sem respostas numéricas não participará da média, mas sua ausência deverá ser considerada na classificação de suficiência do diagnóstico.
+Caso nenhuma dimensão possua resultados válidos, a maturidade geral será indisponível.
+6.5. Preenchimento e cobertura
+O sistema deverá calcular separadamente o percentual de preenchimento e a cobertura das respostas.
+Percentual de preenchimento
+Representa a proporção de perguntas que receberam uma resposta válida, incluindo respostas numéricas, NA justificada e NS.
+Preenchimento (%) = (Perguntas preenchidas / Total de perguntas) × 100
+Cobertura
+Representa a proporção de perguntas aplicáveis que receberam pontuação numérica.
+Cobertura (%) = [Respostas numéricas / (Total de perguntas − NA justificadas)] × 100
+Exemplo com 30 perguntas:
+* 24 respostas numéricas;
+* 2 respostas NA justificadas;
+* 4 respostas NS;
+* Nenhuma pergunta pendente.
+Preenchimento = (30 / 30) × 100 = 100%.
+Cobertura = [24 / (30 − 2)] × 100 = 85,71%.
+Portanto, uma avaliação pode estar totalmente preenchida sem possuir cobertura de 100%.
+Os mesmos indicadores deverão poder ser calculados por dimensão.
+Caso o denominador da cobertura seja zero, o resultado será indisponível, sem realizar divisão por zero.
+6.6. Classificação da maturidade
+Os resultados percentuais seguirão as faixas interpretativas iniciais do PrismaTI.
+
+
+Faixa Percentual
+	Classificação da Maturidade
+	0% a 20%
+	Muito inicial
+	Acima de 20% até 40%
+	Inicial
+	Acima de 40% até 60%
+	Em desenvolvimento
+	Acima de 60% até 80%
+	Estabelecido
+	Acima de 80% até 100%
+	Avançado
+	Exemplo: a maturidade geral de 57,86% será classificada como Em desenvolvimento.
+Essas faixas pertencem à metodologia do PrismaTI e não representam níveis oficiais de maturidade ou certificação dos frameworks utilizados.
+As classificações deverão ser associadas à versão metodológica utilizada.
+6.7. Suficiência do diagnóstico
+O sistema deverá diferenciar o resultado quantitativo da quantidade de informações disponíveis.
+Apto à revisão
+O diagnóstico será considerado apto à revisão quando:
+* A avaliação estiver finalizada;
+* A cobertura geral for igual ou superior a 80%;
+* Todas as sete dimensões possuírem pelo menos uma resposta numérica válida;
+* Os cálculos forem concluídos corretamente.
+Preliminar
+O diagnóstico será classificado como preliminar quando:
+* A cobertura geral for inferior a 80%; ou
+* Alguma dimensão não possuir pontuação numérica válida.
+Sem dados suficientes
+Será utilizado quando nenhuma pergunta possuir pontuação numérica válida.
+A classificação "Apto à revisão" indica suficiência inicial de informações, não verificação humana das respostas ou das evidências.
+O limite de cobertura de 80% é uma definição metodológica inicial, sujeita à validação nos testes-piloto.
+Uma avaliação preliminar poderá ser finalizada e gerar relatório, desde que suas limitações sejam apresentadas claramente.
+6.8. Evidências e resultados
+A maturidade será calculada com base nas respostas declaradas pelo Gestor.
+As evidências poderão estar nas situações:
+* Não informada;
+* Indicada;
+* Enviada.
+O backend deverá disponibilizar essas informações junto ao diagnóstico para que a IA diferencie respostas acompanhadas de evidências daquelas sem registros de comprovação.
+No MVP, não haverá indicador de evidências efetivamente conferidas, pois a conferência humana formal não será implementada.
+O registro ou a ausência de evidências não alterará automaticamente a maturidade calculada.
+6.9. Integridade e versionamento
+Cada resultado deverá preservar:
+* Identificador da avaliação;
+* Versão do instrumento;
+* Versão das regras de cálculo;
+* Pontuação geral e por dimensão;
+* Indicadores de preenchimento e cobertura;
+* Situação de suficiência;
+* Data e hora do processamento.
+O backend deverá:
+* Considerar cada pergunta uma única vez;
+* Validar pontuações entre 0 e 4;
+* Não converter NA ou NS em zero;
+* Evitar divisões por zero;
+* Preservar resultados históricos;
+* Impedir alterações indevidas após a finalização;
+* Manter precisão suficiente nos cálculos, arredondando somente para apresentação.
+O backend não será responsável por classificar riscos, priorizar recomendações ou elaborar roadmaps. Essas atividades serão realizadas pela IA, conforme a Seção 7.
+6.10. Validação dos cálculos
+A implementação deverá possuir testes automatizados para os seguintes cenários:
+
+
+Cenário
+	Resultado esperado
+	Nota individual igual a 3
+	75%
+	Quatro notas: 3, 2, 1 e 2
+	Maturidade de 50%
+	Respostas 3, 1, NA e NS
+	Maturidade de 50% e cobertura de 66,67%
+	24 numéricas, 2 NA e 4 NS
+	Cobertura de 85,71%
+	Dimensão sem respostas numéricas
+	Maturidade indisponível
+	Cobertura inferior a 80%
+	Diagnóstico preliminar
+	Todas as respostas NS
+	Diagnóstico sem dados suficientes
+	Pergunta vinculada a vários frameworks
+	Contabilização única
+	Mesmas respostas e mesma metodologia
+	Resultados idênticos
+	Os critérios gerais de aceitação do MVP estão definidos na Seção 10.
+6.11. Limitações metodológicas
+Os resultados do PrismaTI representam uma avaliação inicial das práticas declaradas pela empresa.
+As pontuações não deverão ser interpretadas como certificação, auditoria independente, garantia de segurança, probabilidade de incidentes ou comprovação de conformidade com os frameworks utilizados.
+A metodologia e suas faixas de interpretação deverão ser reavaliadas após os testes-piloto, considerando a clareza das perguntas, a frequência de respostas NA e NS e a consistência dos resultados.
+
+
+
+
+7. RELATÓRIOS, RECOMENDAÇÕES, ROADMAP E INTELIGÊNCIA ARTIFICIAL
+7.1. Objetivo e responsabilidades
+O PrismaTI utilizará inteligência artificial (IA) para interpretar os resultados das avaliações de maturidade em TI e produzir relatórios com recomendações práticas e planos de melhoria adaptados à realidade de cada empresa.
+As responsabilidades serão divididas da seguinte forma:
+Backend:
+* Calcular e armazenar os resultados quantitativos;
+* Preparar os dados autorizados para análise;
+* Integrar-se ao serviço de IA;
+* Controlar solicitações, processamento e falhas;
+* Validar a estrutura dos relatórios gerados;
+* Armazenar, versionar e disponibilizar relatórios;
+* Registrar o consumo da API de IA.
+Inteligência artificial:
+* Interpretar os resultados;
+* Identificar pontos fortes e fragilidades;
+* Analisar possíveis consequências das práticas identificadas;
+* Priorizar recomendações por risco, impacto e esforço;
+* Elaborar planos de ação e roadmaps;
+* Produzir explicações acessíveis aos gestores.
+O backend não implementará regras próprias de priorização das melhorias. A IA será responsável pela análise qualitativa, mas não poderá alterar respostas nem pontuações oficiais.
+O assistente conversacional para esclarecimento de dúvidas ficará fora do MVP, sendo previsto para uma versão posterior.
+7.2. Dados utilizados na análise
+Após a finalização da avaliação, o backend deverá preparar um conjunto estruturado de dados contendo:
+Informações da empresa:
+* Identificação;
+* Segmento de atuação;
+* Porte e quantidade aproximada de colaboradores;
+* Outras informações organizacionais disponíveis e relevantes.
+Informações do diagnóstico:
+* Identificador e versão da avaliação;
+* Perguntas e alternativas selecionadas;
+* Pontuações individuais;
+* Maturidade geral e por dimensão;
+* Indicadores de cobertura;
+* Respostas NA, com justificativas;
+* Respostas NS;
+* Referências metodológicas pertinentes.
+Informações complementares:
+* Descrições e indicações de evidências;
+* Informação sobre existência de arquivos anexados;
+* Explicações das perguntas;
+* Orientações metodológicas necessárias à interpretação.
+Os documentos anexados não serão enviados automaticamente à IA no MVP. A existência de um arquivo não deverá ser apresentada como comprovação de que a prática foi verificada.
+O backend deverá compartilhar apenas as informações necessárias à operação solicitada, respeitando as permissões e a privacidade dos dados empresariais.
+7.3. Geração e estrutura do relatório
+O Gestor poderá solicitar o relatório após a finalização da avaliação.
+O backend deverá verificar a autorização, recuperar os resultados, preparar os dados e encaminhar a solicitação ao serviço de IA.
+A geração ocorrerá de forma assíncrona, permitindo acompanhar o processamento sem manter a página aberta.
+O relatório deverá conter:
+
+
+Seção
+	Conteúdo
+	Resumo executivo
+	Síntese da maturidade, principais pontos fortes e fragilidades
+	Informações da avaliação
+	Empresa, data, instrumento, metodologia e limitações
+	Maturidade geral
+	Resultado oficial e interpretação em linguagem acessível
+	Análise por dimensão
+	Resultados, práticas positivas e oportunidades de melhoria
+	Fragilidades
+	Problemas identificados ou potenciais, fundamentados nas respostas
+	Recomendações
+	Melhorias priorizadas e respectivas justificativas
+	Plano de ação
+	Atividades práticas sugeridas para executar as melhorias
+	Roadmap
+	Organização das ações em fases e períodos estimados
+	Considerações finais
+	Síntese e próximos passos recomendados
+	Os valores oficiais de maturidade deverão ser obtidos do backend. A IA deverá interpretá-los, sem recalculá-los ou substituí-los.
+O relatório deverá ser armazenado e disponibilizado para consulta e exportação em PDF.
+7.4. Fragilidades e recomendações priorizadas
+A IA deverá analisar as respostas individuais, os resultados das dimensões e o contexto da empresa para identificar fragilidades e oportunidades de melhoria.
+A priorização não deverá considerar somente as menores notas. Também deverão ser avaliados qualitativamente:
+* Risco: possíveis consequências negativas associadas à fragilidade;
+* Impacto: efeitos potenciais sobre as operações, informações ou continuidade do negócio;
+* Esforço: complexidade, tempo e recursos estimados para implementar a melhoria.
+As recomendações deverão receber prioridade Alta, Média ou Baixa, acompanhada de justificativa.
+Cada recomendação deverá conter, no mínimo:
+* Identificador e título;
+* Dimensão e perguntas relacionadas;
+* Fragilidade identificada;
+* Consequência potencial;
+* Ação recomendada;
+* Benefício esperado;
+* Prioridade e justificativa;
+* Avaliação qualitativa de impacto e esforço.
+A IA deverá diferenciar informações declaradas de inferências. Não poderá afirmar que determinado incidente ocorreu sem que essa informação esteja presente nos dados fornecidos.
+As prioridades serão orientativas e não representarão medições estatísticas ou certificadas de risco.
+7.5. Plano de ação e roadmap
+A IA deverá transformar as recomendações em um plano de ação compreensível, indicando:
+* O que deve ser feito;
+* Por que a ação é recomendada;
+* Etapas sugeridas;
+* Perfil profissional que poderá executá-la;
+* Recursos potencialmente necessários;
+* Benefício esperado;
+* Evidências que poderão demonstrar sua conclusão.
+O roadmap deverá organizar essas ações em uma sequência lógica, considerando prioridade, esforço e dependências.
+Como referência inicial, a IA poderá utilizar:
+
+
+Fase
+	Período sugerido
+	Curto prazo
+	Até 30 dias
+	Médio prazo
+	De 31 a 60 dias
+	Prazo posterior
+	De 61 a 90 dias
+	Os períodos não serão obrigatórios. A IA poderá sugerir prazos maiores ou diferentes quando a complexidade das ações justificar.
+As recomendações deverão ser compatíveis com a realidade das PMEs, evitando presumir a existência de equipes, ferramentas, orçamento ou infraestrutura não informados.
+Quando não houver informações suficientes para estimar recursos ou prazos, o relatório deverá indicar que esses aspectos precisam ser validados pela empresa.
+7.6. Confiabilidade e validação dos resultados da IA
+A geração deverá seguir instruções que orientem a IA a:
+1. Preservar as pontuações oficiais;
+2. Não inventar respostas, incidentes ou evidências;
+3. Não tratar NS como ausência de uma prática;
+4. Não transformar NA em fragilidade;
+5. Associar fragilidades e recomendações às perguntas correspondentes;
+6. Distinguir informações declaradas de conclusões inferidas;
+7. Informar limitações decorrentes de respostas insuficientes;
+8. Evitar afirmações de certificação ou conformidade oficial;
+9. Não executar ações na infraestrutura da empresa.
+O retorno da IA deverá possuir estrutura definida e versionada, preferencialmente em formato estruturado.
+O backend deverá validar os campos obrigatórios, tipos de dados e referências às perguntas e dimensões existentes na avaliação.
+A validação técnica da estrutura não substitui a revisão da qualidade das recomendações. Os relatórios deverão ser avaliados pela equipe do PrismaTI durante os testes-piloto.
+Conteúdos enviados pelos usuários deverão ser tratados como dados da avaliação, e não como instruções capazes de alterar as regras da plataforma.
+7.7. Armazenamento, falhas e consumo
+Cada relatório deverá permanecer vinculado à avaliação que o originou.
+O sistema deverá registrar:
+* Identificador da avaliação e do relatório;
+* Modelo de IA utilizado;
+* Versão das instruções e da estrutura de saída;
+* Data de solicitação e conclusão;
+* Estado do processamento;
+* Conteúdo produzido;
+* Consumo de tokens e custo estimado, quando disponíveis;
+* Informações de erro, quando houver.
+Os estados de processamento serão: Em fila, Processando, Concluído e Falha.
+Em caso de falha, o backend deverá preservar os resultados quantitativos, registrar o problema e permitir nova tentativa controlada.
+Uma nova geração deverá criar outra versão do relatório, sem sobrescrever as anteriores.
+O sistema deverá permitir limites configuráveis de consumo da API de IA, evitando gastos descontrolados.
+7.8. Limitações do relatório
+Os relatórios terão caráter orientativo e dependerão das informações fornecidas pelas empresas.
+O sistema deverá informar que suas análises:
+* Não representam certificações oficiais;
+* Não substituem auditorias especializadas;
+* Não garantem ausência de riscos;
+* Não comprovam automaticamente as respostas declaradas;
+* Não garantem resultados específicos após a execução das recomendações.
+Recomendações que envolvam investimentos relevantes, questões legais ou decisões críticas de segurança deverão ser avaliadas por profissionais competentes antes da implementação.
+Os requisitos funcionais referentes aos relatórios estão identificados na Seção 4, enquanto sua integração técnica e persistência serão detalhadas na Seção 8.
+
+
+8. MODELO DE DADOS, ARQUITETURA E INTEGRAÇÕES
+8.1. Visão geral da arquitetura
+O backend do PrismaTI será responsável pelas regras de negócio, autenticação, controle de acesso, persistência, cálculo de maturidade e integração com serviços externos.
+A arquitetura deverá contemplar:
+
+
+Componente
+	Responsabilidade
+	Frontend
+	Interface dos Administradores, Gestores e Responsáveis de TI
+	Backend
+	Regras de negócio, autorizações, avaliações e integrações
+	Banco de dados
+	Armazenamento das informações estruturadas
+	Armazenamento de arquivos
+	Proteção e recuperação das evidências anexadas
+	Serviço de IA
+	Geração de relatórios, recomendações e roadmaps
+	Processamento assíncrono
+	Execução de tarefas de geração de relatórios
+	Serviço de e-mail
+	Envio de convites e recuperação de acesso
+	Para o MVP, recomenda-se uma aplicação backend modular, sem necessidade inicial de microsserviços.
+A linguagem, o framework, o banco de dados e os provedores externos ainda serão definidos pela equipe.
+8.2. Modelo lógico de dados
+As entidades abaixo representam a estrutura lógica inicial do PrismaTI.
+Os nomes dos campos são sugestões para orientar a modelagem e poderão ser adaptados à tecnologia escolhida.
+8.2.1. Empresas e usuários
+
+
+Entidade
+	Campos principais
+	Company
+	id, legal_name, trade_name, cnpj, sector, company_size, employee_count_range, contact_email, status, created_at, updated_at
+	User
+	id, name, email, password_hash, account_status, created_at, updated_at
+	CompanyMembership
+	id, company_id, user_id, role, status, created_at
+	Invitation
+	id, company_id, email, role, token_hash, expires_at, accepted_at, status, created_by
+	Regras principais:
+* Empresas serão cadastradas exclusivamente por administradores.
+* A liberação de acesso ocorrerá manualmente após a confirmação da contratação.
+* No MVP, cada usuário empresarial estará vinculado a uma única empresa.
+* O Administrador possuirá permissão global, separada dos vínculos empresariais.
+* Os convites deverão ser individuais, temporários e de utilização única.
+* Usuários ou empresas inativados não poderão continuar utilizando as funcionalidades protegidas.
+8.2.2. Instrumento de avaliação
+
+
+Entidade
+	Campos principais
+	AssessmentInstrument
+	id, name, description, status
+	InstrumentVersion
+	id, instrument_id, version, methodology_version, status, published_at
+	Dimension
+	id, instrument_version_id, code, name, description, display_order
+	Question
+	id, instrument_version_id, dimension_id, code, title, explanation, evidence_guidance, verification_guidance, privacy_guidance, display_order
+	AnswerOption
+	id, question_id, score, description, display_order
+	FrameworkReference
+	id, framework_name, version, reference_code, description, source_url
+	QuestionFrameworkReference
+	id, question_id, framework_reference_id
+	Regras principais:
+* Somente versões publicadas poderão ser utilizadas em novas avaliações.
+* Cada pergunta deverá pertencer a uma dimensão da mesma versão do instrumento.
+* Cada pergunta deverá possuir exatamente cinco alternativas numéricas, pontuadas de 0 a 4.
+* As opções NA e NS serão tratadas como tipos especiais de resposta, sem pontuação numérica.
+* Uma pergunta poderá possuir várias referências metodológicas.
+* Instrumentos utilizados em avaliações concluídas deverão permanecer preservados.
+8.2.3. Avaliações e evidências
+
+
+Entidade
+	Campos principais
+	Assessment
+	id, company_id, manager_user_id, instrument_version_id, status, started_at, finalized_at
+	AssessmentAnswer
+	id, assessment_id, question_id, answer_type, answer_option_id, justification, updated_by, updated_at
+	Evidence
+	id, assessment_answer_id, evidence_type, description, storage_key, original_filename, mime_type, file_size, uploaded_by, created_at
+	Regras principais:
+* Uma avaliação pertencerá a uma empresa e a um Gestor responsável.
+* Cada empresa poderá possuir apenas uma avaliação em andamento.
+* Cada pergunta poderá possuir apenas uma resposta atual por avaliação.
+* O tipo de resposta será SCORE, NA ou NS.
+* Respostas SCORE deverão apontar para uma alternativa válida.
+* Respostas NA deverão possuir justificativa.
+* Somente o Gestor responsável poderá alterar respostas e evidências enquanto a avaliação estiver em andamento.
+* Após a finalização, os dados utilizados no diagnóstico deverão permanecer bloqueados.
+Tipos de evidência:
+* FILE: documento ou imagem anexada;
+* TEXT: descrição textual;
+* DECLARED: indicação de uma evidência existente, mas não compartilhada.
+A situação de uma resposta sem evidências será "Não informada". Evidências descritivas serão tratadas como "Indicadas", enquanto arquivos anexados serão tratados como "Enviados".
+Não haverá campos ou processos obrigatórios de verificação humana no MVP.
+8.2.4. Resultados e maturidade
+
+
+Entidade
+	Campos principais
+	AssessmentResult
+	id, assessment_id, calculation_version, overall_maturity, overall_coverage, answered_count, scored_count, na_count, ns_count, result_status, calculated_at
+	DimensionResult
+	id, assessment_result_id, dimension_id, maturity_percentage, coverage_percentage, applicable_questions, scored_questions, total_score, result_status
+	Regras principais:
+* Cada avaliação finalizada deverá possuir um resultado oficial.
+* Os resultados deverão permanecer vinculados à versão do instrumento e das regras de cálculo.
+* Dimensões sem respostas numéricas poderão possuir maturidade nula.
+* Os indicadores de maturidade e cobertura deverão ser armazenados separadamente.
+* A inteligência artificial não poderá modificar esses resultados.
+8.2.5. Relatórios e consumo de IA
+
+
+Entidade
+	Campos principais
+	AIReportJob
+	id, assessment_id, requested_by, status, attempt_count, requested_at, started_at, finished_at, error_code
+	AIReport
+	id, assessment_id, report_job_id, report_version, content, model_name, prompt_version, output_schema_version, generated_at
+	AIUsage
+	id, company_id, user_id, report_job_id, provider, model, input_tokens, output_tokens, estimated_cost, currency, status, created_at
+	Regras principais:
+* Os relatórios deverão estar vinculados a avaliações finalizadas.
+* Cada solicitação de geração deverá possuir um estado de processamento.
+* Novas gerações deverão preservar relatórios anteriores.
+* O conteúdo do relatório deverá permitir armazenar interpretações, fragilidades, recomendações, plano de ação e roadmap.
+* O consumo de tokens e os custos estimados deverão ser registrados quando disponibilizados pelo provedor.
+* O chat conversacional não fará parte do MVP; portanto, suas entidades não serão necessárias nesta versão.
+8.2.6. Auditoria
+A entidade AuditLog registrará operações relevantes do sistema.
+Campos principais:
+* id;
+* actor_user_id;
+* company_id;
+* action;
+* entity_type;
+* entity_id;
+* metadata;
+* created_at.
+Os registros deverão permitir identificar operações administrativas, alterações em avaliações, gerenciamento de evidências e solicitações de relatórios.
+Informações como senhas, tokens ou conteúdo confidencial desnecessário não deverão ser armazenadas nos logs.
+8.3. Relacionamentos e restrições de integridade
+O modelo deverá respeitar os seguintes relacionamentos principais:
+
+
+Origem
+	Destino
+	Relacionamento
+	Company
+	CompanyMembership
+	1:N
+	User
+	CompanyMembership
+	1:N, com um vínculo empresarial ativo por usuário no MVP
+	Company
+	Assessment
+	1:N
+	InstrumentVersion
+	Dimension
+	1:N
+	Dimension
+	Question
+	1:N
+	Question
+	AnswerOption
+	1:N, com cinco alternativas
+	Question
+	FrameworkReference
+	N:N
+	Assessment
+	AssessmentAnswer
+	1:N
+	AssessmentAnswer
+	Evidence
+	1:N
+	Assessment
+	AssessmentResult
+	1:1 para resultado oficial
+	AssessmentResult
+	DimensionResult
+	1:N
+	Assessment
+	AIReportJob
+	1:N
+	Assessment
+	AIReport
+	1:N
+	Company
+	AIUsage
+	1:N
+	O banco de dados deverá garantir:
+1. Unicidade da resposta por pergunta e avaliação;
+2. Unicidade da avaliação em andamento por empresa;
+3. Integridade dos vínculos entre empresa, usuário e avaliação;
+4. Integridade das versões do instrumento;
+5. Preservação dos resultados históricos;
+6. Impedimento de registros incompatíveis com as regras de resposta.
+A restrição de uma avaliação ativa por empresa deverá ser garantida também no nível de persistência, evitando duplicidades causadas por requisições simultâneas.
+8.4. Organização sugerida da API
+O backend deverá disponibilizar uma API HTTP, organizada por recursos.
+As rotas abaixo representam uma proposta inicial. Os nomes e formatos definitivos serão estabelecidos pela equipe de desenvolvimento.
+Autenticação e empresas
+
+
+Método
+	Rota
+	Finalidade
+	POST
+	/auth/login
+	Autenticação
+	POST
+	/auth/logout
+	Encerramento de sessão
+	POST
+	/auth/activate
+	Ativação por convite
+	POST
+	/auth/password/forgot
+	Solicitação de recuperação
+	POST
+	/auth/password/reset
+	Redefinição de senha
+	GET
+	/auth/me
+	Consultar usuário autenticado
+	POST
+	/companies
+	Cadastrar empresa
+	GET
+	/companies
+	Listar empresas autorizadas
+	GET
+	/companies/{id}
+	Consultar empresa
+	PATCH
+	/companies/{id}
+	Atualizar empresa
+	POST
+	/invitations
+	Criar e enviar convite
+	PATCH
+	/users/{id}/status
+	Ativar ou inativar usuário
+	GET
+	/instruments
+	Consultar instrumentos
+	GET
+	/instrument-versions/{id}
+	Consultar versão
+	POST
+	/instrument-versions/{id}/publish
+	Publicar versão
+	GET
+	/instrument-versions/{id}/questions
+	Consultar perguntas
+	POST
+	/assessments
+	Iniciar avaliação
+	GET
+	/assessments
+	Listar avaliações autorizadas
+	GET
+	/assessments/{id}
+	Consultar avaliação
+	PUT
+	/assessments/{id}/answers/{questionId}
+	Salvar resposta
+	GET
+	/assessments/{id}/progress
+	Consultar progresso
+	POST
+	/assessments/{id}/finalize
+	Finalizar avaliação
+	GET
+	/assessments/{id}/results
+	Consultar resultados
+	POST
+	/answers/{id}/evidences
+	Registrar evidência
+	GET
+	/answers/{id}/evidences
+	Consultar evidências
+	GET
+	/evidences/{id}/download
+	Obter arquivo autorizado
+	DELETE
+	/evidences/{id}
+	Remover evidência antes da finalização
+	POST
+	/assessments/{id}/reports
+	Solicitar relatório
+	GET
+	/assessments/{id}/reports
+	Consultar relatórios
+	GET
+	/report-jobs/{id}
+	Consultar processamento
+	POST
+	/report-jobs/{id}/retry
+	Repetir solicitação após falha
+	GET
+	/reports/{id}
+	Consultar relatório
+	GET
+	/reports/{id}/pdf
+	Exportar PDF
+	Questionários e avaliações
+
+
+Método
+	Rota
+	Finalidade
+	GET
+	/instruments
+	Consultar instrumentos
+	GET
+	/instrument-versions/{id}
+	Consultar versão
+	POST
+	/instrument-versions/{id}/publish
+	Publicar versão
+	GET
+	/instrument-versions/{id}/questions
+	Consultar perguntas
+	POST
+	/assessments
+	Iniciar avaliação
+	GET
+	/assessments
+	Listar avaliações autorizadas
+	GET
+	/assessments/{id}
+	Consultar avaliação
+	PUT
+	/assessments/{id}/answers/{questionId}
+	Salvar resposta
+	GET
+	/assessments/{id}/progress
+	Consultar progresso
+	POST
+	/assessments/{id}/finalize
+	Finalizar avaliação
+	GET
+	/assessments/{id}/results
+	Consultar resultados
+	A equipe deverá complementar as operações administrativas de criação e edição de dimensões, perguntas, alternativas e usuários durante a definição dos contratos da API.
+Evidências e relatórios
+
+
+Método
+	Rota
+	Finalidade
+	POST
+	/answers/{id}/evidences
+	Registrar evidência
+	GET
+	/answers/{id}/evidences
+	Consultar evidências
+	GET
+	/evidences/{id}/download
+	Obter arquivo autorizado
+	DELETE
+	/evidences/{id}
+	Remover evidência antes da finalização
+	POST
+	/assessments/{id}/reports
+	Solicitar relatório
+	GET
+	/assessments/{id}/reports
+	Consultar relatórios
+	GET
+	/report-jobs/{id}
+	Consultar processamento
+	POST
+	/report-jobs/{id}/retry
+	Repetir solicitação após falha
+	GET
+	/reports/{id}
+	Consultar relatório
+	GET
+	/reports/{id}/pdf
+	Exportar PDF
+	Todas as operações deverão validar autenticação, permissões e vínculos empresariais.
+As rotas do assistente de dúvidas ficarão reservadas para uma versão futura.
+8.5. Finalização e processamento assíncrono
+A finalização da avaliação deverá ocorrer de maneira transacional.
+O backend deverá:
+1. Validar a avaliação, o Gestor e as respostas;
+2. Bloquear alterações concorrentes;
+3. Calcular e armazenar os resultados;
+4. Alterar a situação da avaliação para Finalizada;
+5. Confirmar a operação.
+Caso ocorra uma falha antes da confirmação, a avaliação não poderá permanecer finalizada sem resultados consistentes.
+A geração do relatório será um processo independente.
+Fluxo de processamento:
+1. O Gestor solicita o relatório;
+2. O backend registra uma tarefa com estado QUEUED;
+3. O processador inicia a tarefa e altera o estado para PROCESSING;
+4. Os dados autorizados são encaminhados à IA;
+5. O retorno é validado e armazenado;
+6. A tarefa assume o estado COMPLETED ou FAILED;
+7. O frontend poderá consultar o estado e apresentar o resultado.
+Falhas na geração não deverão alterar as respostas ou os indicadores de maturidade.
+Novas tentativas deverão ser controladas para evitar processamento e cobranças duplicadas desnecessárias.
+8.6. Integração com a inteligência artificial
+O frontend não deverá acessar diretamente o provedor de IA utilizando credenciais privadas.
+O backend deverá preparar e enviar os dados autorizados conforme a Seção 7.
+A resposta da IA deverá seguir uma estrutura versionada que permita identificar:
+* Resumo executivo;
+* Interpretação geral;
+* Análises por dimensão;
+* Pontos fortes e fragilidades;
+* Recomendações priorizadas;
+* Plano de ação;
+* Roadmap;
+* Limitações do diagnóstico.
+Cada fragilidade ou recomendação deverá conter referências válidas às perguntas que a fundamentam.
+O backend deverá validar a estrutura da resposta antes do armazenamento definitivo, sem permitir que valores produzidos pela IA substituam os resultados oficiais.
+As informações fornecidas pelo Gestor deverão ser tratadas como dados da avaliação, e não como instruções para modificar o comportamento da aplicação.
+8.7. Armazenamento, segurança e histórico
+Os documentos de evidência deverão ser armazenados de maneira privada.
+O banco de dados poderá armazenar apenas os metadados e identificadores necessários para recuperar os arquivos.
+O sistema deverá:
+* Validar tipo e tamanho dos anexos;
+* Restringir o acesso por empresa e perfil;
+* Impedir endereços públicos permanentes para evidências;
+* Registrar o responsável pelo envio;
+* Preservar os arquivos associados às avaliações finalizadas;
+* Manter a integridade das versões e resultados históricos.
+A inativação de usuários ou empresas não deverá excluir automaticamente avaliações e relatórios.
+A política de retenção e eventual eliminação de dados será definida antes da disponibilização em produção.
+Os requisitos de segurança, desempenho e recuperação estão detalhados na Seção 9.
+8.8. Decisões técnicas pendentes
+As seguintes escolhas ainda deverão ser realizadas com a equipe de desenvolvimento:
+* Linguagem e framework do backend;
+* Banco de dados;
+* Serviço de hospedagem;
+* Estratégia de autenticação;
+* Serviço de envio de e-mails;
+* Armazenamento privado de arquivos;
+* Solução de processamento assíncrono;
+* Provedor e modelo de IA;
+* Limites de arquivos e consumo;
+* Política de backup e retenção;
+* Ferramentas de testes e monitoramento.
+Essas definições não deverão modificar as regras de negócio já aprovadas.
+A arquitetura deverá priorizar simplicidade, segurança e facilidade de manutenção, permitindo a evolução gradual do PrismaTI.
+Os requisitos funcionais oficiais estão definidos na Seção 4, e os critérios de conclusão do MVP serão consolidados na Seção 10.
+
+
+9. REQUISITOS NÃO FUNCIONAIS
+9.1. Objetivo
+Os requisitos não funcionais estabelecem as condições de segurança, desempenho, disponibilidade, confiabilidade e manutenção necessárias ao funcionamento do PrismaTI.
+A plataforma deverá proteger as informações das empresas, garantir a integridade das avaliações e oferecer uma experiência adequada ao público-alvo.
+A implementação será independente de linguagem, framework, banco de dados ou provedor de hospedagem até que essas tecnologias sejam definidas pela equipe.
+As metas quantitativas apresentadas são referências iniciais de planejamento e deverão ser validadas tecnicamente.
+9.2. Segurança, autenticação e isolamento
+
+
+ID
+	Requisito
+	RNF-001
+	Utilizar HTTPS em todas as comunicações externas em produção.
+	RNF-002
+	Armazenar senhas com algoritmos seguros de hash, nunca em texto puro.
+	RNF-003
+	Gerenciar sessões com expiração, encerramento e invalidação após inativação.
+	RNF-004
+	Validar autenticação e permissões no backend.
+	RNF-005
+	Aplicar limites de requisições e proteção contra tentativas abusivas de autenticação.
+	RNF-006
+	Utilizar tokens individuais, temporários e de uso único para convites e recuperação de senha.
+	RNF-007
+	Aplicar controles reforçados às contas administrativas, avaliando autenticação multifator.
+	RNF-008
+	Impedir o acesso de usuários aos dados de outras empresas.
+	RNF-009
+	Validar autorização em cada recurso solicitado, independentemente de seu identificador.
+	RNF-010
+	Aplicar o princípio do menor privilégio aos perfis de acesso.
+	O isolamento deverá abranger empresas, usuários, avaliações, respostas, evidências, resultados e relatórios.
+O conhecimento de um identificador não poderá permitir o acesso a um recurso sem autorização.
+9.3. Privacidade e proteção de evidências
+O PrismaTI deverá considerar as exigências aplicáveis da Lei Geral de Proteção de Dados Pessoais (LGPD).
+
+
+ID
+	Requisito
+	RNF-011
+	Coletar apenas informações necessárias ao funcionamento da plataforma.
+	RNF-012
+	Utilizar os dados de acordo com as finalidades informadas aos usuários.
+	RNF-013
+	Restringir o acesso às informações empresariais e pessoais.
+	RNF-014
+	Estabelecer política de retenção, eliminação e anonimização de dados, quando aplicável.
+	RNF-015
+	Informar de forma clara como os dados são utilizados, incluindo o processamento por IA.
+	RNF-016
+	Armazenar evidências de forma privada, sem links públicos permanentes.
+	RNF-017
+	Validar formatos, tamanhos e características dos arquivos enviados.
+	RNF-018
+	Adotar medidas contra arquivos potencialmente maliciosos.
+	RNF-019
+	Orientar os usuários a não compartilhar credenciais ou informações sensíveis desnecessárias.
+	RNF-020
+	Preservar a integridade das evidências após a finalização da avaliação.
+	Os formatos inicialmente previstos para anexos serão PDF, PNG e JPEG. Os limites específicos serão definidos pela equipe técnica.
+As evidências não serão consideradas formalmente verificadas no MVP, independentemente de terem sido anexadas ou descritas.
+9.4. Desempenho, disponibilidade e recuperação
+A plataforma deverá ser projetada para uma meta inicial de 50 usuários simultâneos.
+Essa quantidade representa usuários utilizando o sistema ao mesmo tempo, não necessariamente 50 solicitações simultâneas ao provedor de IA.
+Metas iniciais de desempenho:
+Operação
+	Métrica
+	Tempo Limite
+	Autenticação
+	95% das requisições
+	Até 3 segundos
+	Consultas comuns
+	95% das requisições
+	Até 2 segundos
+	Salvamento de respostas
+	95% das requisições
+	Até 2 segundos
+	Consulta de resultados
+	95% das requisições
+	Até 2 segundos
+	Finalização e cálculo
+	95% das requisições
+	Até 5 segundos
+	Registro de solicitação de relatório
+	95% das requisições
+	Até 2 segundos
+	Essas metas se referem ao tempo de resposta do backend. O tempo necessário para a IA produzir o relatório será acompanhado separadamente.
+Demais requisitos:
+
+
+ID
+	Requisito
+	RNF-021
+	Buscar disponibilidade mensal inicial de 99% em produção, sujeita à validação técnica.
+	RNF-022
+	Preservar os dados das avaliações diante de falhas em serviços externos.
+	RNF-023
+	Processar a geração de relatórios por IA de forma assíncrona.
+	RNF-024
+	Retornar erros padronizados, sem exposição de informações sensíveis.
+	RNF-025
+	Permitir recuperação controlada de operações interrompidas.
+	RNF-026
+	Realizar backups periódicos dos dados e metadados necessários à recuperação.
+	RNF-027
+	Documentar e testar periodicamente a restauração de backups.
+	RNF-028
+	Avaliar inicialmente RPO e RTO de até 24 horas, sujeitos à aprovação da equipe.
+	Como cenário inicial de desempenho, recomenda-se simular 50 usuários virtuais durante pelo menos 15 minutos, com uma combinação de:
+* 70% de operações de consulta e navegação;
+* 20% de salvamento ou atualização de respostas;
+* 10% de solicitações e consultas de processamento de relatórios.
+A proporção representa uma hipótese de teste, não uma previsão de comportamento dos clientes.
+Propõe-se taxa inferior a 1% de erros internos do servidor durante o cenário, desconsiderando rejeições esperadas por validação ou autorização.
+A carga da API de IA deverá ser monitorada separadamente para avaliar limites, custos e comportamento sob solicitações simultâneas.
+As metas de desempenho, disponibilidade, RPO e RTO deverão ser confirmadas antes do lançamento, considerando a infraestrutura e o orçamento disponíveis.
+9.5. Confiabilidade e segurança da IA
+A inteligência artificial será utilizada no MVP exclusivamente para geração dos relatórios, interpretações, recomendações, planos de ação e roadmaps.
+
+
+ID
+	Requisito
+	RNF-029
+	Realizar a integração com o provedor de IA por meio do backend, protegendo as credenciais.
+	RNF-030
+	Impedir que a IA modifique respostas ou pontuações oficiais.
+	RNF-031
+	Validar a estrutura e os campos obrigatórios dos relatórios gerados.
+	RNF-032
+	Enviar ao provedor somente dados necessários e autorizados da avaliação.
+	RNF-033
+	Tratar conteúdos dos usuários como dados, não como instruções de funcionamento do sistema.
+	RNF-034
+	Registrar consumo de tokens e aplicar limites configuráveis de utilização.
+	RNF-035
+	Manter disponíveis os resultados quantitativos quando a IA estiver indisponível.
+	RNF-036
+	Registrar modelo, versão das instruções e informações de processamento dos relatórios.
+	O backend deverá rejeitar respostas estruturalmente inválidas e impedir que relatórios gerados para uma empresa sejam disponibilizados a outra.
+A qualidade das recomendações e do roadmap deverá ser avaliada durante os testes-piloto, conforme a Seção 10.
+9.6. Monitoramento, manutenção e qualidade da API
+
+
+ID
+	Requisito
+	RNF-037
+	Registrar logs operacionais e informações de falhas.
+	RNF-038
+	Registrar eventos relevantes de autenticação, autorização e operações administrativas.
+	RNF-039
+	Utilizar identificadores de rastreamento para facilitar a investigação de erros.
+	RNF-040
+	Proteger logs contra exposição de credenciais e dados sensíveis.
+	RNF-041
+	Manter separadas as responsabilidades de cálculo, avaliações e integração com IA.
+	RNF-042
+	Gerenciar credenciais e configurações fora do código-fonte.
+	RNF-043
+	Utilizar controle de versão para o código e suas alterações.
+	RNF-044
+	Manter documentação de instalação, configuração e execução.
+	RNF-045
+	Permitir substituir serviços externos sem reescrever as regras centrais de negócio.
+	RNF-046
+	Padronizar contratos, métodos HTTP e respostas de erro.
+	RNF-047
+	Validar os dados recebidos em todas as operações.
+	RNF-048
+	Disponibilizar paginação nas listagens administrativas.
+	RNF-049
+	Adotar uma estratégia documentada de versionamento da API.
+	RNF-050
+	Documentar os endpoints, preferencialmente utilizando OpenAPI.
+	A implementação deverá manter organização modular e facilitar a manutenção do sistema, independentemente da tecnologia escolhida.
+9.7. Usabilidade, ambientes e testes
+
+
+ID
+	Requisito
+	RNF-051
+	Disponibilizar mensagens de erro compreensíveis ao usuário.
+	RNF-052
+	Identificar os campos que precisam de correção em falhas de validação.
+	RNF-053
+	Preservar respostas confirmadas como salvas após falhas ou interrupções.
+	RNF-054
+	Disponibilizar explicações e exemplos de evidências por meio da API.
+	O projeto deverá utilizar ambientes separados de desenvolvimento, homologação e produção, com credenciais e configurações independentes.
+A estratégia de testes deverá contemplar:
+* Testes unitários das fórmulas e regras de validação;
+* Testes de integração e persistência;
+* Testes de autenticação, permissões e isolamento empresarial;
+* Testes de upload e acesso às evidências;
+* Testes de concorrência e finalização;
+* Testes de carga com 50 usuários simulados;
+* Testes de integração, falhas e validação de relatórios por IA;
+* Testes de backup e restauração.
+O sistema não deverá utilizar dados empresariais reais indiscriminadamente em ambientes de desenvolvimento e homologação.
+9.8. Prioridades e validação
+Para o MVP, serão obrigatórios os controles necessários à segurança, integridade das avaliações, confiabilidade dos cálculos, proteção das evidências e operação dos relatórios por IA.
+As metas quantitativas de desempenho e recuperação deverão ser validadas e formalmente aprovadas antes da implantação.
+Recursos avançados de infraestrutura e observabilidade poderão ser implementados posteriormente, desde que sua ausência não comprometa os controles essenciais.
+Os cenários de aceitação e o checklist de conclusão do MVP estão definidos na Seção 10.
+10. ESCOPO E CRITÉRIOS DE ACEITAÇÃO DO MVP
+10.1. Objetivo
+Esta seção define as funcionalidades obrigatórias, as exclusões de escopo e os critérios necessários para considerar o MVP do PrismaTI concluído.
+O MVP deverá permitir que uma empresa contratante realize uma avaliação completa de maturidade em TI e receba seus resultados quantitativos, relatório interpretativo, recomendações priorizadas, plano de ação e roadmap de melhorias.
+A inteligência artificial será responsável pela interpretação e pelo planejamento das melhorias. O backend será responsável pela segurança, persistência e cálculo dos resultados.
+O desenvolvimento poderá ocorrer em etapas internas, mas o MVP só será considerado completo quando todo o fluxo obrigatório estiver integrado e validado.
+10.2. Funcionalidades obrigatórias
+O MVP deverá contemplar os seguintes módulos:
+
+
+Módulo
+	Funcionalidades obrigatórias
+	Empresas e usuários
+	Cadastro administrativo, convites, autenticação, perfis e permissões
+	Administração
+	Gestão de empresas, usuários, questionários e versões
+	Avaliações
+	Início, preenchimento, salvamento parcial, finalização e histórico
+	Questionário
+	30 perguntas, sete dimensões, alternativas de 0 a 4, NA e NS
+	Evidências
+	Anexos, descrições e indicações de comprovação
+	Cálculo
+	Maturidade por dimensão, maturidade geral, preenchimento e cobertura
+	Resultados
+	Consulta dos indicadores e da situação do diagnóstico
+	Inteligência artificial
+	Relatórios, interpretação, fragilidades, recomendações e priorização
+	Plano de melhoria
+	Plano de ação e roadmap produzidos pela IA
+	Relatórios
+	Consulta, armazenamento, versionamento e exportação em PDF
+	Segurança e auditoria
+	Isolamento empresarial, autorização, integridade e registros relevantes
+	Controle de IA
+	Processamento assíncrono, tratamento de erros e monitoramento do consumo
+	Regras essenciais:
+* Somente empresas cadastradas pela administração poderão utilizar a plataforma.
+* A confirmação comercial da contratação ocorrerá fora do sistema no MVP.
+* O Gestor será o responsável pelo preenchimento e pela finalização.
+* O Responsável de TI terá acesso exclusivamente consultivo.
+* Cada empresa poderá possuir somente uma avaliação em andamento.
+* As avaliações concluídas permanecerão no histórico.
+* O backend calculará os indicadores quantitativos.
+* A IA produzirá relatórios, recomendações, prioridades e roadmaps, sem modificar as notas oficiais.
+10.3. Funcionalidades fora do MVP
+Não farão parte da primeira versão:
+* Assistente conversacional de IA para esclarecimento de dúvidas;
+* Cadastro público de empresas;
+* Pagamento online, assinaturas e integração com gateways;
+* Comunicação interna entre Gestor e Responsável de TI;
+* Edição colaborativa das respostas;
+* Verificação humana formal de evidências;
+* Análise automática do conteúdo dos anexos por IA;
+* Execução automática das recomendações na infraestrutura das empresas;
+* Comparações históricas avançadas e benchmarking;
+* Aplicativo mobile nativo;
+* Integração automática com sistemas empresariais.
+Essas funcionalidades poderão ser consideradas em versões posteriores.
+O fato de a contratação ser confirmada antes do cadastro não implica a implementação de um sistema de pagamentos no MVP.
+10.4. Etapas sugeridas de desenvolvimento
+O desenvolvimento poderá ser dividido em cinco etapas internas.
+
+
+Etapa
+	Entrega
+	1. Fundação
+	Autenticação, empresas, usuários, convites e permissões
+	2. Avaliações
+	Questionário versionado, respostas, evidências, salvamento e finalização
+	3. Maturidade
+	Cálculos, cobertura, resultados e histórico
+	4. Inteligência artificial
+	Geração de relatórios, recomendações, plano de ação, roadmap e PDF
+	5. Integração e estabilização
+	Integração com frontend, segurança, testes e preparação para implantação
+	As etapas não representam lançamentos independentes.
+O cronograma será definido pela equipe de desenvolvimento conforme os recursos e a disponibilidade dos participantes.
+10.5. Critérios de aceitação
+Os critérios abaixo deverão orientar os testes necessários para aprovação das funcionalidades do MVP.
+
+
+ID
+	Cenário
+	Resultado esperado
+	CA-MVP-01
+	Cadastro e convite
+	Empresa cadastrada por administrador; usuários convidados ativam suas contas.
+	CA-MVP-02
+	Controle de acesso
+	Usuários só acessam os recursos permitidos pelo perfil e empresa.
+	CA-MVP-03
+	Responsável de TI
+	Pode consultar avaliações autorizadas, mas não pode editar nem finalizar.
+	CA-MVP-04
+	Avaliação em andamento
+	O backend impede duas avaliações simultâneas na mesma empresa, inclusive sob concorrência.
+	CA-MVP-05
+	Salvamento parcial
+	Respostas salvas permanecem disponíveis após novo acesso.
+	CA-MVP-06
+	Validação de respostas
+	Alternativas inválidas e NA sem justificativa são rejeitadas na finalização.
+	CA-MVP-07
+	Evidências
+	O Gestor registra evidências e arquivos permanecem privados.
+	CA-MVP-08
+	Finalização
+	Respostas são bloqueadas e resultados armazenados de maneira consistente.
+	CA-MVP-09
+	Cálculo
+	As fórmulas da Seção 6 produzem os resultados esperados, inclusive com NA e NS.
+	CA-MVP-10
+	Diagnóstico preliminar
+	Cobertura insuficiente ou dimensão sem nota válida gera indicação apropriada.
+	CA-MVP-11
+	Relatório por IA
+	A avaliação finalizada permite solicitar e consultar relatório interpretativo.
+	CA-MVP-12
+	Recomendações
+	A IA produz melhorias com justificativas e referências às perguntas correspondentes.
+	CA-MVP-13
+	Roadmap
+	O relatório apresenta ações, prioridades, fases e dependências.
+	CA-MVP-14
+	Integridade da IA
+	Os resultados oficiais calculados pelo backend permanecem inalterados.
+	CA-MVP-15
+	Exportação
+	O usuário autorizado consegue obter um PDF legível do relatório.
+	CA-MVP-16
+	Falha da IA
+	O diagnóstico numérico permanece disponível e a geração pode ser repetida de forma controlada.
+	CA-MVP-17
+	Histórico
+	Avaliações anteriores e seus relatórios são preservados.
+	CA-MVP-18
+	Segurança
+	Uma empresa não consegue acessar dados, arquivos ou relatórios de outra.
+	CA-MVP-19
+	Consumo da IA
+	O sistema registra o consumo disponível e aplica os limites configurados.
+	CA-MVP-20
+	Capacidade
+	O sistema é submetido a teste com 50 usuários simulados e os resultados são comparados às metas aprovadas.
+	Os cálculos deverão possuir testes automatizados com valores conhecidos, conforme os exemplos da Seção 6.
+A conclusão de um cenário deverá ser acompanhada de evidência de teste adequada, como resultado automatizado, registro de execução ou demonstração funcional.
+10.6. Validação da qualidade da inteligência artificial
+Além do funcionamento técnico, os relatórios produzidos pela IA deverão passar por revisão da equipe PrismaTI.
+Recomenda-se utilizar avaliações representativas de diferentes situações:
+* Maturidade baixa, intermediária e elevada;
+* Respostas NA justificadas;
+* Diversas respostas NS;
+* Pouca ou nenhuma evidência;
+* Fragilidades concentradas em diferentes dimensões.
+A avaliação dos relatórios deverá verificar:
+
+
+Critério
+	Verificação
+	Coerência
+	As conclusões são compatíveis com as respostas fornecidas?
+	Integridade
+	As pontuações oficiais foram preservadas?
+	Rastreabilidade
+	As recomendações indicam as perguntas que as fundamentam?
+	Confiabilidade
+	O relatório evita inventar fatos e evidências?
+	Clareza
+	Um gestor sem formação técnica consegue compreender o conteúdo?
+	Priorização
+	As prioridades possuem justificativas relacionadas a risco, impacto e esforço?
+	Aplicabilidade
+	As ações são compatíveis com a realidade de uma PME?
+	Roadmap
+	As etapas apresentam sequência e dependências coerentes?
+	Limitações
+	Informações insuficientes e ausência de verificação são apresentadas corretamente?
+	Problemas identificados deverão ser registrados e tratados antes da aprovação do MVP.
+Uma resposta tecnicamente válida da API de IA não será suficiente para comprovar a qualidade do relatório.
+10.7. Entregáveis e conclusão do MVP
+Entregáveis esperados da equipe de backend:
+1. Código-fonte organizado e versionado;
+2. Modelo de dados implementado;
+3. API funcional e documentada;
+4. Autenticação e autorização;
+5. Motor de avaliações e evidências;
+6. Motor de cálculo com testes automatizados;
+7. Integração com a IA para relatórios, recomendações e roadmap;
+8. Processamento assíncrono e controle de consumo;
+9. Armazenamento privado de arquivos;
+10. Exportação dos relatórios em PDF;
+11. Registros de auditoria e tratamento de erros;
+12. Documentação de configuração e implantação.
+O MVP será considerado concluído quando:
+* Todos os requisitos P0 da Seção 4 estiverem implementados;
+* O fluxo de utilização estiver integrado ao frontend;
+* Os critérios de aceitação obrigatórios forem aprovados;
+* Os cálculos apresentarem resultados corretos;
+* Os relatórios e roadmaps gerados pela IA forem aprovados quanto à qualidade;
+* Os controles de segurança e integridade estiverem funcionando;
+* As metas operacionais aplicáveis forem avaliadas e aprovadas pela equipe responsável;
+* O sistema estiver preparado para a execução do piloto com empresas convidadas.
+Após a aprovação técnica, recomenda-se realizar um piloto com um grupo reduzido de empresas para avaliar a clareza das perguntas, a experiência de preenchimento, a qualidade dos relatórios e os custos reais da IA.
+A conclusão técnica do MVP não representará validação científica automática da metodologia de maturidade utilizada pelo PrismaTI.
