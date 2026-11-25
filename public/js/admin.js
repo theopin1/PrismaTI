@@ -1,4 +1,9 @@
-import { get, post, patch, $, $$, esc, pct, dt, dtt, mountHeader, toast, modal, confirmDialog, showFormErrors, clearFormErrors, ROLE_LABEL, STATUS_LABEL, STATUS_BADGE, JOB_LABEL, JOB_BADGE } from './api.js';
+import { get, post, patch, del, $, $$, esc, pct, dt, dtt, mountHeader, toast, modal, confirmDialog, showFormErrors, clearFormErrors, fmtCnpj, ROLE_LABEL, STATUS_LABEL, STATUS_BADGE, JOB_LABEL, JOB_BADGE } from './api.js';
+
+function debounce(fn, ms = 250) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
 
 const me = await mountHeader('admin');
 if (!me.is_platform_admin) location.href = '/painel.html';
@@ -48,7 +53,7 @@ function companyForm(c = {}) {
   return `<form id="cform">
     ${field('legal_name', 'Razão social *', `value="${esc(c.legal_name || '')}" required`)}
     ${field('trade_name', 'Nome fantasia', `value="${esc(c.trade_name || '')}"`)}
-    ${field('cnpj', 'CNPJ', `value="${esc(c.cnpj || '')}" inputmode="numeric"`, 'Opcional. 14 dígitos.')}
+    ${field('cnpj', 'CNPJ', `value="${esc(c.cnpj || '')}" inputmode="numeric" placeholder="00.000.000/0000-00" maxlength="18"`, 'Opcional. 14 dígitos válidos.')}
     ${field('sector', 'Setor', `value="${esc(c.sector || '')}"`)}
     <div class="grid2" style="gap:12px">${select('company_size', 'Porte', [['', '—'], ['Micro', 'Micro'], ['Pequena', 'Pequena'], ['Média', 'Média']], c.company_size || '')}
     ${select('employee_count_range', 'Colaboradores', [['', '—'], ['1-9', '1 a 9'], ['10-49', '10 a 49'], ['50-99', '50 a 99'], ['100-249', '100 a 249'], ['250+', '250 ou mais']], c.employee_count_range || '')}</div>
@@ -71,25 +76,31 @@ function openCompanyForm(c, after) {
 }
 
 async function viewEmpresas(pane, p = 1, q = '') {
-  const data = await get(`/admin/companies?page=${p}&q=${encodeURIComponent(q)}`);
-  pane.innerHTML = `<section class="box"><div class="row"><input id="q" placeholder="Buscar por nome ou CNPJ" value="${esc(q)}" style="max-width:320px"><span class="spacer"></span><button class="btn-sm primary" id="new">Nova empresa</button></div>
-    <div class="tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>Empresa</th><th>CNPJ</th><th>Usuários</th><th>Última avaliação</th><th>Situação</th><th></th></tr></thead><tbody>
-    ${data.items.map((c) => `<tr><td><b>${esc(c.trade_name || c.legal_name)}</b><div class="small muted">${esc(c.legal_name)}</div></td><td class="small">${esc(c.cnpj || '—')}</td><td>${c.active_users}</td>
-      <td class="small">${c.last_assessment_status ? ASS_LABEL[c.last_assessment_status] : '—'}</td><td><span class="badge ${ACC_BADGE[c.status]}">${ACC_LABEL[c.status]}</span></td>
-      <td><button class="btn-sm ghost" data-open="${c.id}">Abrir</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhuma empresa cadastrada.</td></tr>'}
-    </tbody></table></div></section>`;
-  $('.box', pane).appendChild(pager(data, (np) => viewEmpresas(pane, np, q)));
-  $('#q').addEventListener('change', (e) => viewEmpresas(pane, 1, e.target.value));
-  $('#new').addEventListener('click', () => openCompanyForm(null, (c) => companyDetail(pane, c.id)));
-  $$('[data-open]', pane).forEach((b) => b.addEventListener('click', () => companyDetail(pane, b.dataset.open)));
+  pane.innerHTML = `<section class="box"><div class="row"><input id="q" class="search-input" placeholder="Buscar por nome ou CNPJ" value="${esc(q)}" style="max-width:320px"><span class="spacer"></span><button class="btn-sm primary" id="new">Nova empresa</button></div>
+    <div id="tbl-area" style="margin-top:16px"><p class="muted">Carregando...</p></div></section>`;
+  async function loadList(page = 1) {
+    q = $('#q', pane).value;
+    const data = await get(`/admin/companies?page=${page}&q=${encodeURIComponent(q)}`);
+    const area = $('#tbl-area', pane);
+    area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>CNPJ</th><th>Usuários</th><th>Última avaliação</th><th>Situação</th><th></th></tr></thead><tbody>
+      ${data.items.map((c) => `<tr><td><b>${esc(c.trade_name || c.legal_name)}</b><div class="small muted">${esc(c.legal_name)}</div></td><td class="small">${esc(fmtCnpj(c.cnpj))}</td><td>${c.active_users}</td>
+        <td class="small">${c.last_assessment_status ? ASS_LABEL[c.last_assessment_status] : '—'}</td><td><span class="badge ${ACC_BADGE[c.status]}">${ACC_LABEL[c.status]}</span></td>
+        <td><button class="btn-sm ghost" data-open="${c.id}">Abrir</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhuma empresa cadastrada.</td></tr>'}
+      </tbody></table></div>`;
+    area.appendChild(pager(data, loadList));
+    $$('[data-open]', area).forEach((b) => b.addEventListener('click', () => companyDetail(pane, b.dataset.open)));
+  }
+  $('#q', pane).addEventListener('input', debounce(() => loadList(1)));
+  $('#new', pane).addEventListener('click', () => openCompanyForm(null, (c) => companyDetail(pane, c.id)));
+  await loadList(p);
 }
 
 async function companyDetail(pane, id) {
   const c = await get(`/admin/companies/${id}`);
   const u = c.ai_usage;
-  pane.innerHTML = `<p><button class="btn-sm ghost" id="back">← Empresas</button></p>
+  pane.innerHTML = `<p><button class="btn-sm ghost" id="back"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Empresas</button></p>
     <div class="grid2" style="margin-top:16px"><div class="stack">
-      <section class="box"><div class="dim-head"><div><h2>${esc(c.trade_name || c.legal_name)}</h2><p class="small muted">${esc(c.legal_name)}${c.cnpj ? ` · CNPJ ${esc(c.cnpj)}` : ''}</p></div>
+      <section class="box"><div class="dim-head"><div><h2>${esc(c.trade_name || c.legal_name)}</h2><p class="small muted">${esc(c.legal_name)}${c.cnpj ? ` · CNPJ ${esc(fmtCnpj(c.cnpj))}` : ''}</p></div>
         <span class="badge ${ACC_BADGE[c.status]}">${ACC_LABEL[c.status]}</span></div>
         <p class="small muted" style="margin-top:10px">${[c.sector, c.company_size, c.employee_count_range && `${c.employee_count_range} colaboradores`, c.contact_email].filter(Boolean).map(esc).join(' · ') || 'Sem dados complementares.'}</p>
         <div class="row" style="margin-top:16px"><button class="btn-sm ghost" id="edit">Editar dados</button>
@@ -142,19 +153,57 @@ async function companyDetail(pane, id) {
 
 // ---------- Usuários ----------
 async function viewUsuarios(pane, p = 1, q = '') {
-  const data = await get(`/admin/users?page=${p}&q=${encodeURIComponent(q)}`);
-  pane.innerHTML = `<section class="box"><input id="q" placeholder="Buscar por nome ou e-mail" value="${esc(q)}" style="max-width:320px">
-    <div class="tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>Usuário</th><th>Empresa</th><th>Perfil</th><th>MFA</th><th>Conta</th><th></th></tr></thead><tbody>
-    ${data.items.map((u) => `<tr><td>${esc(u.name)}<div class="small muted">${esc(u.email)}</div></td><td class="small">${esc(u.company_name || '—')}</td>
-      <td class="small">${u.is_platform_admin ? 'Administrador' : u.role ? ROLE_LABEL[u.role] : '—'}</td><td class="small">${u.mfa_enabled ? 'Ativa' : '—'}</td>
-      <td><span class="badge ${ACC_BADGE[u.account_status]}">${ACC_LABEL[u.account_status]}</span></td>
-      <td>${u.id === me.id || u.account_status === 'PENDING' ? '' : `<button class="btn-sm ${u.account_status === 'ACTIVE' ? 'danger' : 'ghost'}" data-st="${u.id}" data-to="${u.account_status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}">${u.account_status === 'ACTIVE' ? 'Inativar' : 'Reativar'}</button>`}</td></tr>`).join('')}
-    </tbody></table></div></section>`;
-  $('.box', pane).appendChild(pager(data, (np) => viewUsuarios(pane, np, q)));
-  $('#q').addEventListener('change', (e) => viewUsuarios(pane, 1, e.target.value));
-  $$('[data-st]', pane).forEach((b) => b.addEventListener('click', async () => {
-    try { await patch(`/admin/users/${b.dataset.st}/status`, { status: b.dataset.to }); toast('Conta atualizada.'); viewUsuarios(pane, p, q); } catch (e) { toast(e.message, true); }
-  }));
+  pane.innerHTML = `<section class="box"><div class="row"><input id="q" class="search-input" placeholder="Buscar por nome ou e-mail" value="${esc(q)}" style="max-width:320px"><span class="spacer"></span><button class="btn-sm primary" id="new-admin">Novo administrador</button></div>
+    <div id="tbl-area" style="margin-top:16px"><p class="muted">Carregando...</p></div></section>`;
+  let curPage = p;
+  async function loadUsers(page = 1) {
+    curPage = page;
+    q = $('#q', pane).value;
+    const data = await get(`/admin/users?page=${page}&q=${encodeURIComponent(q)}`);
+    const area = $('#tbl-area', pane);
+    area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Usuário</th><th>Empresa</th><th>Perfil</th><th>MFA</th><th>Conta</th><th></th></tr></thead><tbody>
+      ${data.items.map((u) => `<tr><td>${esc(u.name)}<div class="small muted">${esc(u.email)}</div></td><td class="small">${esc(u.company_name || '—')}</td>
+        <td class="small">${u.is_platform_admin ? 'Administrador' : u.role ? ROLE_LABEL[u.role] : '—'}</td><td class="small">${u.mfa_enabled ? 'Ativa' : '—'}</td>
+        <td><span class="badge ${ACC_BADGE[u.account_status]}">${ACC_LABEL[u.account_status]}</span></td>
+        <td><div class="row">${u.account_status === 'ACTIVE' ? `<button class="btn-sm ghost" data-reset="${u.id}" data-email="${esc(u.email)}">Redefinir senha</button>` : ''}${u.id === me.id || u.account_status === 'PENDING' ? '' : `<button class="btn-sm ${u.account_status === 'ACTIVE' ? 'danger' : 'ghost'}" data-st="${u.id}" data-to="${u.account_status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}">${u.account_status === 'ACTIVE' ? 'Inativar' : 'Reativar'}</button>`}</div></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum usuário.</td></tr>'}
+      </tbody></table></div>`;
+    area.appendChild(pager(data, loadUsers));
+    $$('[data-st]', area).forEach((b) => b.addEventListener('click', async () => {
+      try { await patch(`/admin/users/${b.dataset.st}/status`, { status: b.dataset.to }); toast('Conta atualizada.'); loadUsers(curPage); } catch (e) { toast(e.message, true); }
+    }));
+    $$('[data-reset]', area).forEach((b) => b.addEventListener('click', async () => {
+      if (!(await confirmDialog('Gerar link de redefinição?', `Um novo link de uso único será gerado para ${b.dataset.email}.`, 'Gerar link'))) return;
+      try {
+        const r = await post(`/admin/users/${b.dataset.reset}/reset-password`);
+        if (r.reset_link) {
+          modal(`<h3>Link de redefinição de senha</h3><p class="small muted">Envie o link abaixo para <b>${esc(b.dataset.email)}</b> definir uma nova senha:</p><p style="margin-top:12px"><span class="code">${esc(r.reset_link)}</span></p><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn-sm primary" data-close>Fechar</button></div>`);
+        } else {
+          toast('E-mail de redefinição enviado.');
+        }
+      } catch (e) { toast(e.message, true); }
+    }));
+  }
+  $('#q', pane).addEventListener('input', debounce(() => loadUsers(1)));
+  $('#new-admin', pane).addEventListener('click', () => {
+    const m = modal(`<h3>Novo administrador</h3><p class="small muted">Cria um usuário administrador com acesso global. Ele receberá um link para definir a senha.</p>
+      <form id="af" style="margin-top:14px">${field('name', 'Nome *', 'required')}${field('email', 'E-mail *', 'type="email" required')}<div class="alert"></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn-sm ghost" data-close>Cancelar</button><button class="btn-sm primary">Criar administrador</button></div></form>`);
+    const f = $('#af', m.el);
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault(); clearFormErrors(f);
+      try {
+        const r = await post('/admin/admins', formData(f));
+        m.close();
+        loadUsers(1);
+        if (r.setup_link) {
+          modal(`<h3>Administrador criado</h3><p class="small muted">E-mail não configurado neste ambiente. Repasse o link de definição de senha:</p><p style="margin-top:12px"><span class="code">${esc(r.setup_link)}</span></p><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn-sm primary" data-close>Fechar</button></div>`);
+        } else {
+          toast('Administrador criado e convite enviado por e-mail.');
+        }
+      } catch (err) { showFormErrors(f, err); }
+    });
+  });
+  await loadUsers(p);
 }
 
 // ---------- Questionário ----------
@@ -164,8 +213,8 @@ async function viewQuestionario(pane) {
   pane.innerHTML = `<section class="box"><h2>Versões do questionário</h2><p class="small muted">Versões publicadas ou já usadas não podem ser alteradas. Para mudar perguntas, crie uma nova versão a partir de uma existente, edite e publique. Avaliações antigas continuam ligadas à versão em que foram respondidas.</p>
     <div class="tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>Versão</th><th>Situação</th><th>Criada em</th><th>Avaliações</th><th></th></tr></thead><tbody>
     ${items.map((v) => `<tr><td><b>v${esc(v.version)}</b></td><td><span class="badge ${V_LABEL[v.status]?.[0] || ''}">${V_LABEL[v.status]?.[1] || v.status}</span></td><td class="small">${dt(v.created_at)}</td><td>${v.assessments_count}</td>
-      <td class="row"><button class="btn-sm ghost" data-view="${v.id}">${v.status === 'DRAFT' && !v.assessments_count ? 'Editar' : 'Ver'}</button><button class="btn-sm ghost" data-clone="${v.id}">Nova versão a partir desta</button>
-      ${v.status === 'DRAFT' ? `<button class="btn-sm primary" data-pub="${v.id}">Publicar</button>` : ''}</td></tr>`).join('')}
+      <td><div class="row"><button class="btn-sm ghost" data-view="${v.id}">${v.status === 'DRAFT' && !v.assessments_count ? 'Editar' : 'Ver'}</button><button class="btn-sm ghost" data-clone="${v.id}">Nova versão a partir desta</button>
+      ${v.status === 'DRAFT' ? `<button class="btn-sm primary" data-pub="${v.id}">Publicar</button>` : ''}</div></td></tr>`).join('')}
     </tbody></table></div></section><div id="vdetail"></div>`;
   $$('[data-clone]', pane).forEach((b) => b.addEventListener('click', () => {
     const m = modal(`<h3>Nova versão</h3><form id="vf">${field('version', 'Número da versão *', 'placeholder="1.1" required', 'Formato 1.1, 2.0...')}<div class="alert"></div>
@@ -185,19 +234,54 @@ async function versionDetail(vid) {
   const editable = v.status === 'DRAFT';
   const box = $('#vdetail');
   const ta = (name, label, val) => `<div class="field"><label>${label}</label><textarea name="${name}" rows="2" ${editable ? '' : 'readonly'}>${esc(val || '')}</textarea></div>`;
-  box.innerHTML = `<section class="box" style="margin-top:22px"><h2>Versão ${esc(v.version)} · ${v.questions.length} perguntas em ${v.dimensions.length} dimensões</h2>
-    <p class="small muted">${editable ? 'Rascunho: as alterações são salvas por pergunta.' : 'Somente leitura.'}</p>
+  box.innerHTML = `<section class="box" style="margin-top:22px">
+    <div class="dim-head"><div><h2>Versão ${esc(v.version)} · ${v.questions.length} perguntas em ${v.dimensions.length} dimensões</h2>
+      <p class="small muted">${editable ? 'Rascunho: você pode criar dimensões, adicionar ou excluir perguntas e editar alternativas e referências.' : 'Somente leitura.'}</p></div>
+      ${editable ? '<div class="row"><button class="btn-sm ghost" id="new-dim">Nova dimensão</button><button class="btn-sm primary" id="new-q">Nova pergunta</button></div>' : ''}</div>
     ${v.dimensions.map((d) => `<div class="row" style="margin-top:24px"><h3 style="margin:0">${esc(d.code)} · ${esc(d.name)}</h3>${editable ? `<button class="btn-sm ghost" data-dim="${d.id}">Editar dimensão</button>` : ''}</div>
       ${v.questions.filter((q) => q.dimension_id === d.id).map((q) => `<details class="qedit"><summary><span class="code">${esc(q.code)}</span> ${esc(q.title)}</summary>
         <form data-q="${q.id}" style="margin-top:14px">
           ${field('theme', 'Tema', `value="${esc(q.theme || '')}" ${editable ? '' : 'readonly'}`)}
           ${ta('title', 'Pergunta', q.title)}${ta('explanation', 'O que verifica', q.explanation)}${ta('evidence_guidance', 'Evidências sugeridas', q.evidence_guidance)}
+          ${ta('verification_guidance', 'Como confirmar a resposta', q.verification_guidance)}${ta('no_file_guidance', 'Sem arquivo? Informe...', q.no_file_guidance)}
+          ${ta('privacy_guidance', 'Cuidados com a privacidade', q.privacy_guidance)}${ta('applicability_note', 'Nota de aplicabilidade', q.applicability_note)}
           ${q.options.map((o) => ta(`opt${o.score}`, `Alternativa ${o.score}`, o.description)).join('')}
           ${ta('first_recommendation', 'Primeira recomendação', q.first_recommendation)}
-          <p class="small muted">Referências: ${q.references.map((r) => esc(`${r.framework_name} ${r.reference_code}`)).join('; ') || '—'}</p>
-          <div class="alert"></div>${editable ? '<button class="btn-sm primary" style="margin-top:10px">Salvar pergunta</button>' : ''}</form></details>`).join('')}`).join('')}
+          ${field('references_text', 'Referências metodológicas (separadas por ;)', `value="${esc(q.references.map((r) => r.reference_code).join('; '))}" ${editable ? '' : 'readonly'}`)}
+          <div class="alert"></div>${editable ? `<div class="row" style="margin-top:10px"><button class="btn-sm primary">Salvar pergunta</button><button type="button" class="btn-sm danger" data-del-q="${q.id}" data-code="${esc(q.code)}">Excluir pergunta</button></div>` : ''}</form></details>`).join('')}`).join('')}
   </section>`;
   if (!editable) return box.scrollIntoView({ behavior: 'smooth' });
+  $('#new-dim', box).addEventListener('click', () => {
+    const m = modal(`<h3>Nova dimensão</h3><form id="ndf">${field('code', 'Código *', 'placeholder="SEG" maxlength="10" required')}${field('name', 'Nome *', 'required')}
+      <div class="field"><label>Descrição</label><textarea name="description" rows="2"></textarea></div><div class="alert"></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn-sm ghost" data-close>Cancelar</button><button class="btn-sm primary">Criar dimensão</button></div></form>`);
+    const f = $('#ndf', m.el);
+    f.addEventListener('submit', async (e) => { e.preventDefault(); clearFormErrors(f); try { await post(`/admin/instrument-versions/${vid}/dimensions`, formData(f)); m.close(); toast('Dimensão criada.'); versionDetail(vid); } catch (err) { showFormErrors(f, err); } });
+  });
+  $('#new-q', box).addEventListener('click', () => {
+    const m = modal(`<h3>Nova pergunta</h3><form id="nqf">${select('dimension_id', 'Dimensão *', v.dimensions.map((d) => [d.id, `${d.code} · ${d.name}`]))}
+      <div class="grid2" style="gap:12px">${field('code', 'Código *', 'placeholder="P31" maxlength="12" required')}${field('theme', 'Tema')}</div>
+      <div class="field"><label>Pergunta *</label><textarea name="title" rows="2" required></textarea></div>
+      <div class="field"><label>O que verifica</label><textarea name="explanation" rows="2"></textarea></div>
+      ${[0, 1, 2, 3, 4].map((s) => `<div class="field"><label>Alternativa ${s} *</label><textarea name="opt${s}" rows="2" required></textarea></div>`).join('')}
+      <div class="field"><label>Evidências sugeridas</label><textarea name="evidence_guidance" rows="2"></textarea></div>
+      <div class="field"><label>Como confirmar</label><textarea name="verification_guidance" rows="2"></textarea></div>
+      <div class="field"><label>Sem arquivo? Informe...</label><textarea name="no_file_guidance" rows="2"></textarea></div>
+      <div class="field"><label>Cuidados com a privacidade</label><textarea name="privacy_guidance" rows="2"></textarea></div>
+      <div class="field"><label>Nota de aplicabilidade</label><textarea name="applicability_note" rows="2"></textarea></div>
+      <div class="field"><label>Primeira recomendação</label><textarea name="first_recommendation" rows="2"></textarea></div>
+      ${field('references_text', 'Referências (separadas por ;)', 'placeholder="COBIT 2019 APO01; ISO 27001 §5.3"')}
+      <div class="alert"></div><div class="row" style="justify-content:flex-end"><button type="button" class="btn-sm ghost" data-close>Cancelar</button><button class="btn-sm primary">Adicionar pergunta</button></div></form>`);
+    const f = $('#nqf', m.el);
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault(); clearFormErrors(f);
+      const d = formData(f);
+      const body = { dimension_id: d.dimension_id, code: d.code, theme: d.theme, title: d.title, explanation: d.explanation, evidence_guidance: d.evidence_guidance,
+        verification_guidance: d.verification_guidance, no_file_guidance: d.no_file_guidance, privacy_guidance: d.privacy_guidance, applicability_note: d.applicability_note,
+        first_recommendation: d.first_recommendation, references_text: d.references_text, options: [0, 1, 2, 3, 4].map((s) => ({ score: s, description: d[`opt${s}`] })) };
+      try { await post(`/admin/instrument-versions/${vid}/questions`, body); m.close(); toast('Pergunta adicionada.'); versionDetail(vid); } catch (err) { showFormErrors(f, err); }
+    });
+  });
   $$('[data-dim]', box).forEach((b) => b.addEventListener('click', () => {
     const d = v.dimensions.find((x) => x.id === b.dataset.dim);
     const m = modal(`<h3>Editar dimensão ${esc(d.code)}</h3><form id="df">${field('name', 'Nome *', `value="${esc(d.name)}" required`)}<div class="field"><label>Descrição</label><textarea name="description" rows="3">${esc(d.description || '')}</textarea></div><div class="alert"></div>
@@ -208,9 +292,14 @@ async function versionDetail(vid) {
   $$('form[data-q]', box).forEach((f) => f.addEventListener('submit', async (e) => {
     e.preventDefault(); clearFormErrors(f);
     const d = formData(f);
-    const body = { theme: d.theme, title: d.title, explanation: d.explanation, evidence_guidance: d.evidence_guidance, first_recommendation: d.first_recommendation,
-      options: [0, 1, 2, 3, 4].map((s) => ({ score: s, description: d[`opt${s}`] })) };
+    const body = { theme: d.theme, title: d.title, explanation: d.explanation, evidence_guidance: d.evidence_guidance, verification_guidance: d.verification_guidance,
+      no_file_guidance: d.no_file_guidance, privacy_guidance: d.privacy_guidance, applicability_note: d.applicability_note, first_recommendation: d.first_recommendation,
+      references_text: d.references_text, options: [0, 1, 2, 3, 4].map((s) => ({ score: s, description: d[`opt${s}`] })) };
     try { await patch(`/admin/instrument-versions/${vid}/questions/${f.dataset.q}`, body); toast('Pergunta salva.'); } catch (err) { showFormErrors(f, err); }
+  }));
+  $$('[data-del-q]', box).forEach((b) => b.addEventListener('click', async () => {
+    if (!(await confirmDialog(`Excluir pergunta ${b.dataset.code}?`, 'A pergunta será removida deste rascunho.', 'Excluir'))) return;
+    try { await del(`/admin/instrument-versions/${vid}/questions/${b.dataset.delQ}`); toast('Pergunta excluída.'); versionDetail(vid); } catch (err) { toast(err.message, true); }
   }));
   box.scrollIntoView({ behavior: 'smooth' });
 }
@@ -233,8 +322,9 @@ async function viewRelatorios(pane, p = 1) {
       <section class="box"><p class="small muted">Provedor</p><div class="stat" style="font-size:22px">${usage.provider === 'anthropic' ? 'Anthropic' : 'Gerador local'}</div><p class="small muted">${esc(usage.model)}</p></section>
       <section class="box"><p class="small muted">Tokens no mês</p><div class="stat">${(m.input_tokens + m.output_tokens).toLocaleString('pt-BR')}</div><p class="small muted">${m.calls} chamada(s) · limite global ${usage.limits.tokens_global.toLocaleString('pt-BR')}</p></section>
       <section class="box"><p class="small muted">Custo estimado no mês</p><div class="stat">US$ ${m.cost.toFixed(2)}</div><p class="small muted">Limite por empresa: ${usage.limits.reports_per_company} relatórios</p></section></div>
-    <section class="box" style="margin-top:20px"><h3>Solicitações de relatório</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Solicitado</th><th>Situação</th><th>Tentativas</th><th>Erro</th></tr></thead><tbody>
-    ${jobs.items.map((j) => `<tr><td>${esc(j.company_name)}</td><td class="small">${dtt(j.requested_at)}</td><td><span class="badge ${JOB_BADGE[j.status]}">${JOB_LABEL[j.status]}</span></td><td>${j.attempt_count}</td><td class="small muted">${esc(j.error_code || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Nenhuma solicitação.</td></tr>'}
+    <section class="box" style="margin-top:20px"><h3>Solicitações de relatório</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Solicitado</th><th>Situação</th><th>Tentativas</th><th>Erro</th><th></th></tr></thead><tbody>
+    ${jobs.items.map((j) => `<tr><td>${esc(j.company_name)}</td><td class="small">${dtt(j.requested_at)}</td><td><span class="badge ${JOB_BADGE[j.status]}">${JOB_LABEL[j.status]}</span></td><td>${j.attempt_count}</td><td class="small muted">${esc(j.error_code || '')}</td>
+      <td>${j.report_id ? `<div class="row"><a class="btn-sm ghost" href="/api/v1/reports/${j.report_id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF (v${j.report_version})</a><a class="btn-sm ghost" href="/api/v1/reports/${j.report_id}/pdf">Baixar</a></div>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhuma solicitação.</td></tr>'}
     </tbody></table></div></section>
     <section class="box" style="margin-top:20px"><h3>Consumo recente</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Empresa</th><th>Modelo</th><th>Entrada</th><th>Saída</th><th>Custo</th><th>Situação</th></tr></thead><tbody>
     ${usage.items.map((u) => `<tr><td class="small">${dtt(u.created_at)}</td><td>${esc(u.company_name)}</td><td class="small">${esc(u.model)}</td><td>${u.input_tokens}</td><td>${u.output_tokens}</td><td>US$ ${u.estimated_cost.toFixed(4)}</td><td class="small">${esc(u.status)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sem consumo registrado.</td></tr>'}
@@ -242,15 +332,26 @@ async function viewRelatorios(pane, p = 1) {
   $$('.box', pane)[3].appendChild(pager(jobs, (np) => viewRelatorios(pane, np)));
 }
 
-async function viewAuditoria(pane, p = 1, action = '') {
-  const data = await get(`/admin/audit-logs?page=${p}&action=${encodeURIComponent(action)}`);
-  pane.innerHTML = `<section class="box"><input id="act" placeholder="Filtrar por ação (ex.: auth, assessment, report)" value="${esc(action)}" style="max-width:360px">
-    <div class="tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>Data</th><th>Ação</th><th>Usuário</th><th>Entidade</th><th>Detalhes</th><th>IP</th></tr></thead><tbody>
-    ${data.items.map((l) => `<tr><td class="small">${dtt(l.created_at)}</td><td><span class="code">${esc(l.action)}</span></td><td class="small">${esc(l.actor_email || '—')}</td>
-      <td class="small muted">${esc(l.entity_type || '')}</td><td class="small muted" style="max-width:280px">${esc(l.metadata || '')}</td><td class="small muted">${esc(l.ip || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum registro.</td></tr>'}
-    </tbody></table></div></section>`;
-  $('.box', pane).appendChild(pager(data, (np) => viewAuditoria(pane, np, action)));
-  $('#act').addEventListener('change', (e) => viewAuditoria(pane, 1, e.target.value.trim()));
+async function viewAuditoria(pane, p = 1, action = '', companyId = '') {
+  const cos = await get('/admin/companies?pageSize=100');
+  pane.innerHTML = `<section class="box"><div class="row"><input id="act" class="search-input" placeholder="Filtrar por ação (ex.: auth, assessment, report)" value="${esc(action)}" style="max-width:340px">
+    <select id="comp" class="search-select"><option value="">Todas as empresas</option>${cos.items.map((c) => `<option value="${esc(c.id)}" ${c.id === companyId ? 'selected' : ''}>${esc(c.trade_name || c.legal_name)}</option>`).join('')}</select></div>
+    <div id="tbl-area" style="margin-top:16px"><p class="muted">Carregando...</p></div></section>`;
+  async function loadLogs(page = 1) {
+    action = $('#act', pane).value.trim();
+    companyId = $('#comp', pane).value;
+    const qs = `page=${page}&action=${encodeURIComponent(action)}${companyId ? `&company_id=${encodeURIComponent(companyId)}` : ''}`;
+    const data = await get(`/admin/audit-logs?${qs}`);
+    const area = $('#tbl-area', pane);
+    area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Ação</th><th>Usuário</th><th>Entidade</th><th>Detalhes</th><th>IP</th></tr></thead><tbody>
+      ${data.items.map((l) => `<tr><td class="small">${dtt(l.created_at)}</td><td><span class="code">${esc(l.action)}</span></td><td class="small">${esc(l.actor_email || '—')}</td>
+        <td class="small muted">${esc(l.entity_type || '')}</td><td class="small muted" style="max-width:280px">${esc(l.metadata || '')}</td><td class="small muted">${esc(l.ip || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum registro.</td></tr>'}
+      </tbody></table></div>`;
+    area.appendChild(pager(data, loadLogs));
+  }
+  $('#act', pane).addEventListener('input', debounce(() => loadLogs(1)));
+  $('#comp', pane).addEventListener('change', () => loadLogs(1));
+  await loadLogs(p);
 }
 
 // ---------- Conta / MFA ----------
@@ -259,11 +360,17 @@ async function viewConta(pane) {
   pane.innerHTML = `<section class="box" style="max-width:640px"><h2>Verificação em duas etapas</h2>
     ${cur.mfa_setup_required ? '<div class="alert show">Ative a verificação em duas etapas para usar a administração.</div>' : ''}
     <p class="muted" style="margin-top:10px">${cur.mfa_enabled ? 'Ativa. Ao entrar, será pedido o código de 6 dígitos do aplicativo autenticador.' : 'Use um aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password...) para gerar códigos de acesso.'}</p>
-    ${cur.mfa_enabled ? '' : `<button class="btn-sm primary" id="setup" style="margin-top:16px">Configurar agora</button><div id="mfa"></div>`}</section>`;
+    ${cur.mfa_enabled ? `<form id="mf-off" style="margin-top:16px">${field('code', 'Para desativar, digite o código de 6 dígitos do autenticador', 'inputmode="numeric" maxlength="6" required autocomplete="one-time-code"')}<div class="alert"></div><button class="btn-sm danger">Desativar verificação em duas etapas</button></form>`
+      : `<button class="btn-sm primary" id="setup" style="margin-top:16px">Configurar agora</button><div id="mfa"></div>`}</section>`;
+  $('#mf-off')?.addEventListener('submit', async (e) => {
+    e.preventDefault(); clearFormErrors($('#mf-off'));
+    try { await post('/auth/mfa/disable', formData($('#mf-off'))); toast('Verificação em duas etapas desativada.'); viewConta(pane); } catch (err) { showFormErrors($('#mf-off'), err); }
+  });
   $('#setup')?.addEventListener('click', async () => {
     try {
       const s = await post('/auth/mfa/setup');
-      $('#mfa').innerHTML = `<p class="small" style="margin-top:16px">1. No aplicativo, adicione uma conta com a chave abaixo (ou use o endereço otpauth):</p>
+      $('#mfa').innerHTML = `<p class="small" style="margin-top:16px">1. Escaneie o QR Code abaixo no aplicativo autenticador ou adicione a chave manual:</p>
+        ${s.qr_svg ? `<div style="margin:14px 0;display:inline-block;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fff">${s.qr_svg}</div>` : ''}
         <p><span class="code">${esc(s.secret)}</span></p><p class="small muted" style="word-break:break-all">${esc(s.otpauth_url)}</p>
         <form id="mf" style="margin-top:12px">${field('code', '2. Digite o código de 6 dígitos', 'inputmode="numeric" maxlength="6" required autocomplete="one-time-code"')}<div class="alert"></div><button class="btn-sm primary">Ativar</button></form>`;
       const f = $('#mf');

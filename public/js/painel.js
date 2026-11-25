@@ -5,7 +5,8 @@ if (me.is_platform_admin) location.href = '/admin.html';
 const main = $('#main');
 
 async function render() {
-  const [company, list] = await Promise.all([get('/company'), get('/assessments')]);
+  const [company, list, repList] = await Promise.all([get('/company'), get('/assessments'), get('/reports')]);
+  const savedReports = repList.items || [];
   const current = list.items.find((a) => a.status === 'IN_PROGRESS');
   const finished = list.items.filter((a) => a.status === 'FINALIZED');
   let progress = null;
@@ -38,12 +39,22 @@ async function render() {
             ${finished.map((a) => `<tr><td>${dt(a.finalized_at)}<div class="small muted">Instrumento v${esc(a.version)}</div></td>
               <td><b style="color:${LEVEL_COLOR(a.overall_maturity)}">${pct(a.overall_maturity)}</b><div class="small muted">${esc(a.overall_classification || 'Indisponível')}</div></td>
               <td><span class="badge ${STATUS_BADGE[a.result_status]}">${STATUS_LABEL[a.result_status]}</span></td>
-              <td>${a.reports}</td><td><a class="btn-sm ghost" href="/resultado.html?id=${a.id}">Ver resultado</a></td></tr>`).join('')}
+              <td>${a.reports}</td><td><div class="row"><a class="btn-sm ghost" href="/resultado.html?id=${a.id}">Ver resultado</a>${a.latest_report_id ? `<a class="btn-sm ghost" href="/api/v1/reports/${a.latest_report_id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF</a>` : ''}</div></td></tr>`).join('')}
           </tbody></table></div>` : '<p class="empty-state">As avaliações finalizadas aparecerão aqui, com seus resultados e relatórios.</p>'}
+        </section>
+        <section class="box">
+          <h2>Histórico de relatórios em PDF</h2>
+          <p class="muted small">Todos os relatórios gerados ficam salvos aqui para você abrir novamente ou baixar quando quiser.</p>
+          ${savedReports.length ? `<div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Relatório</th><th>Avaliação</th><th>Maturidade</th><th></th></tr></thead><tbody>
+            ${savedReports.map((rp) => `<tr><td><b>Relatório v${rp.report_version}</b><div class="small muted">Gerado em ${dtt(rp.generated_at)}</div></td>
+              <td>${dt(rp.finalized_at)}<div class="small muted">Instrumento v${esc(rp.instrument_version)}</div></td>
+              <td><b style="color:${LEVEL_COLOR(rp.overall_maturity)}">${pct(rp.overall_maturity)}</b><div class="small muted">${esc(rp.overall_classification || 'Indisponível')}</div></td>
+              <td><div class="row"><a class="btn-sm ghost" href="/api/v1/reports/${rp.id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF</a><a class="btn-sm primary" href="/api/v1/reports/${rp.id}/pdf">Baixar PDF</a></div></td></tr>`).join('')}
+          </tbody></table></div>` : '<p class="empty-state">Os relatórios em PDF gerados aparecerão salvos aqui para abrir ou baixar a qualquer momento.</p>'}
         </section>
       </div>
       <div class="stack">
-        ${last ? `<section class="box"><p class="muted small">Último resultado</p><div class="stat" style="color:${LEVEL_COLOR(last.overall_maturity)}">${pct(last.overall_maturity)}</div><p><b>${esc(last.overall_classification || '')}</b></p><p class="small muted">Finalizada em ${dt(last.finalized_at)}</p><a class="btn-sm primary" style="margin-top:12px" href="/resultado.html?id=${last.id}">Abrir resultado e relatório</a></section>` : ''}
+        ${last ? `<section class="box"><p class="muted small">Último resultado</p><div class="stat" style="color:${LEVEL_COLOR(last.overall_maturity)}">${pct(last.overall_maturity)}</div><p><b>${esc(last.overall_classification || '')}</b></p><p class="small muted">Finalizada em ${dt(last.finalized_at)}</p><div class="row" style="margin-top:12px"><a class="btn-sm primary" href="/resultado.html?id=${last.id}">Abrir resultado</a>${last.latest_report_id ? `<a class="btn-sm ghost" href="/api/v1/reports/${last.latest_report_id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF (v${last.latest_report_version})</a>` : ''}</div></section>` : ''}
         <section class="box">
           <h3>${esc(company.trade_name || company.legal_name)}</h3>
           <p class="small muted">${[company.sector, company.company_size && `Porte ${company.company_size}`, company.employee_count_range && `${company.employee_count_range} colaboradores`].filter(Boolean).map(esc).join(' · ') || 'Dados cadastrais mantidos pela administração do PrismaTI.'}</p>

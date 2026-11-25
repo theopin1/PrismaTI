@@ -3,11 +3,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { one, all, run, tx } from '../db.js';
-import { uuid, nowIso, addMinutes, randomToken, sha256, paginate } from '../lib/util.js';
+import { uuid, nowIso, addMinutes, randomToken, sha256, paginate, isValidCnpj } from '../lib/util.js';
 import { parse, notFound, badRequest, conflict, AppError } from '../lib/errors.js';
 import { requireAdmin, revokeUserSessions } from '../lib/auth.js';
+import { hashPassword } from '../lib/security.js';
 import { audit } from '../lib/audit.js';
-import { sendMail, inviteMail } from '../services/mailer.js';
+import { sendMail, inviteMail, resetMail } from '../services/mailer.js';
 import * as instrument from '../services/instrument.js';
 import { usageSummary } from '../services/reports.js';
 
@@ -27,7 +28,7 @@ const page = (sqlCount, sqlRows, params, q) => {
 };
 
 // ---------- Empresas ----------
-const cnpj = z.string().trim().transform((s) => s.replace(/\D/g, '')).refine((s) => s === '' || s.length === 14, 'CNPJ deve ter 14 dígitos.');
+const cnpj = z.string().trim().transform((s) => s.replace(/\D/g, '')).refine((s) => s === '' || isValidCnpj(s), 'CNPJ inválido.');
 const companyBody = z.object({
   legal_name: z.string().trim().min(2, 'Informe a razão social.').max(200),
   trade_name: z.string().trim().max(200).optional().default(''),
@@ -118,6 +119,49 @@ r.patch('/users/:id/status', (req, res) => {
   res.json({ ok: true });
 });
 
+r.post('/admins', async (req, res) => {
+  const b = parse(z.object({
+    name: z.string().trim().min(2, 'Informe o nome.').max(120),
+    email: z.string().trim().toLowerCase().email('Informe um e-mail válido.').max(200),
+  }), req.body);
+  if (one('SELECT 1 FROM users WHERE email = ?', b.email)) {
+    throw badRequest('Este e-mail já está cadastrado.', { email: 'E-mail já utilizado.' });
+  }
+  const userId = uuid();
+  const token = randomToken();
+  const now = nowIso();
+  tx(() => {
+    run('INSERT INTO users (id, name, email, password_hash, account_status, is_platform_admin, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)',
+      userId, b.name, b.email, hashPassword(randomToken(16) + 'A1'), 'ACTIVE', 1, now, now);
+    run('INSERT INTO password_resets (id, user_id, token_hash, expires_at, created_at) VALUES (?,?,?,?,?)',
+      uuid(), userId, sha256(token), addMinutes(config.inviteHours * 60), now);
+  });
+  const link = `${config.baseUrl}/redefinir.html#token=${token}`;
+  const mail = resetMail({ name: b.name, link, minutes: config.inviteHours * 60 });
+  const sent = await sendMail({ to: b.email, ...mail });
+  audit(req, 'admin.created_user', { entityType: 'user', entityId: userId, metadata: { email: b.email } });
+  res.status(201).json({ ok: true, id: userId, delivered: sent.delivered, setup_link: sent.delivered || config.env === 'production' ? undefined : link });
+});
+
+r.post('/users/:id/reset-password', async (req, res) => {
+  const u = one('SELECT * FROM users WHERE id = ?', req.params.id);
+  if (!u) throw notFound('Usuário não encontrado.');
+  if (u.account_status !== 'ACTIVE') throw badRequest('Somente contas ativas podem redefinir a senha.');
+  const token = randomToken();
+  const now = nowIso();
+  tx(() => {
+    run('UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL', now, u.id);
+    run('INSERT INTO password_resets (id, user_id, token_hash, expires_at, created_at) VALUES (?,?,?,?,?)',
+      uuid(), u.id, sha256(token), addMinutes(config.resetMinutes), now);
+  });
+  const link = `${config.baseUrl}/redefinir.html#token=${token}`;
+  const mail = resetMail({ name: u.name, link, minutes: config.resetMinutes });
+  const sent = await sendMail({ to: u.email, ...mail });
+  const m = one(`SELECT company_id FROM company_memberships WHERE user_id = ? AND status = 'ACTIVE'`, u.id);
+  audit(req, 'admin.password_reset_issued', { companyId: m?.company_id, entityType: 'user', entityId: u.id });
+  res.json({ ok: true, delivered: sent.delivered, reset_link: sent.delivered || config.env === 'production' ? undefined : link });
+});
+
 // Altera o vínculo do usuário com a empresa (papel ou desvinculação)
 r.patch('/memberships', (req, res) => {
   const b = parse(z.object({ user_id: z.string(), company_id: z.string(), role: z.enum(['GESTOR', 'TI']).optional(), status: z.enum(['ACTIVE', 'INACTIVE']).optional() }), req.body);
@@ -201,6 +245,17 @@ r.post('/instrument-versions/:id/clone', (req, res) => {
   res.status(201).json({ id });
 });
 
+r.post('/instrument-versions/:vid/dimensions', (req, res) => {
+  const b = parse(z.object({
+    code: z.string().trim().min(2).max(10),
+    name: z.string().trim().min(2, 'Informe o nome da dimensão.').max(120),
+    description: z.string().max(500).optional(),
+  }), req.body);
+  const out = instrument.createDimension(req.params.vid, b);
+  audit(req, 'instrument.dimension_created', { entityType: 'dimension', entityId: out.id });
+  res.status(201).json(out);
+});
+
 r.patch('/instrument-versions/:vid/dimensions/:did', (req, res) => {
   const b = parse(z.object({ name: z.string().trim().min(2).max(120).optional(), description: z.string().max(500).optional() }), req.body);
   instrument.updateDimension(req.params.vid, req.params.did, b);
@@ -209,16 +264,42 @@ r.patch('/instrument-versions/:vid/dimensions/:did', (req, res) => {
 });
 
 const txt = (max = 2000) => z.string().max(max).optional();
+const qOptionsSchema = z.array(z.object({ score: z.number().int().min(0).max(4), description: z.string().trim().min(2).max(500) }));
+const qRefsSchema = z.array(z.object({ framework_name: z.string().min(2).max(40), version: z.string().max(40).nullable().optional(), reference_code: z.string().min(2).max(200), source_url: z.string().url().nullable().optional() })).optional();
+
+r.post('/instrument-versions/:vid/questions', (req, res) => {
+  const b = parse(z.object({
+    dimension_id: z.string().min(1, 'Selecione a dimensão.'),
+    code: z.string().trim().min(2).max(12),
+    theme: txt(120), title: z.string().trim().min(5, 'Informe o texto da pergunta.').max(500),
+    explanation: txt(), evidence_guidance: txt(), verification_guidance: txt(), no_file_guidance: txt(),
+    privacy_guidance: txt(), applicability_note: txt(), first_recommendation: txt(), primary_framework: txt(40),
+    references_text: txt(1000),
+    options: qOptionsSchema,
+    references: qRefsSchema,
+  }), req.body);
+  const out = instrument.createQuestion(req.params.vid, b);
+  audit(req, 'instrument.question_created', { entityType: 'question', entityId: out.id, metadata: { code: b.code } });
+  res.status(201).json(out);
+});
+
 r.patch('/instrument-versions/:vid/questions/:qid', (req, res) => {
   const b = parse(z.object({
     theme: txt(120), title: z.string().trim().min(5, 'Informe o texto da pergunta.').max(500).optional(), explanation: txt(), evidence_guidance: txt(),
     verification_guidance: txt(), no_file_guidance: txt(), privacy_guidance: txt(), applicability_note: txt(), first_recommendation: txt(),
     primary_framework: txt(40), dimension_id: z.string().optional(),
-    options: z.array(z.object({ score: z.number().int().min(0).max(4), description: z.string().trim().min(2).max(500) })).optional(),
-    references: z.array(z.object({ framework_name: z.string().min(2).max(40), version: z.string().max(40).nullable().optional(), reference_code: z.string().min(2).max(200), source_url: z.string().url().nullable().optional() })).optional(),
+    references_text: txt(1000),
+    options: qOptionsSchema.optional(),
+    references: qRefsSchema,
   }), req.body);
   instrument.updateQuestion(req.params.vid, req.params.qid, b);
   audit(req, 'instrument.question_updated', { entityType: 'question', entityId: req.params.qid, metadata: { fields: Object.keys(b) } });
+  res.json({ ok: true });
+});
+
+r.delete('/instrument-versions/:vid/questions/:qid', (req, res) => {
+  instrument.deleteQuestion(req.params.vid, req.params.qid);
+  audit(req, 'instrument.question_deleted', { entityType: 'question', entityId: req.params.qid });
   res.json({ ok: true });
 });
 
@@ -242,8 +323,9 @@ r.get('/assessments', (req, res) => {
 
 r.get('/report-jobs', (req, res) => {
   res.json(page('SELECT COUNT(*) n FROM ai_report_jobs',
-    `SELECT j.id, j.status, j.attempt_count, j.requested_at, j.finished_at, j.error_code, COALESCE(c.trade_name, c.legal_name) AS company_name
-     FROM ai_report_jobs j JOIN companies c ON c.id = j.company_id ORDER BY j.requested_at DESC`, [], req.query));
+    `SELECT j.id, j.status, j.attempt_count, j.requested_at, j.finished_at, j.error_code, COALESCE(c.trade_name, c.legal_name) AS company_name,
+            rp.id AS report_id, rp.report_version
+     FROM ai_report_jobs j JOIN companies c ON c.id = j.company_id LEFT JOIN ai_reports rp ON rp.report_job_id = j.id ORDER BY j.requested_at DESC`, [], req.query));
 });
 
 // ---------- Auditoria e consumo de IA ----------

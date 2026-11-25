@@ -56,6 +56,7 @@ export async function generateLocal(payload) {
     priority: c.priority,
     priority_justification: `Nota ${c.q.score}/4 em uma prática de risco ${c.risk.toLowerCase()} para o negócio e esforço estimado ${c.effort.toLowerCase()}.`,
     risk: c.risk, impact: c.risk, effort: c.effort,
+    deliverable: c.q.evidence_guidance || 'Registro simples da ação realizada.',
   }));
 
   const idByCode = Object.fromEntries(recommendations.map((r) => [r.question_codes[0], r.id]));
@@ -81,14 +82,20 @@ export async function generateLocal(payload) {
   });
 
   const phases = [
-    { phase: 'Curto prazo', period: 'Até 30 dias', p: 'Alta' },
-    { phase: 'Médio prazo', period: 'De 31 a 60 dias', p: 'Média' },
-    { phase: 'Prazo posterior', period: 'De 61 a 90 dias', p: 'Baixa' },
+    { phase: 'Organizar o essencial', period: 'Até 30 dias', p: 'Alta', expected_result: 'Inventário básico e responsáveis definidos.' },
+    { phase: 'Colocar rotinas em prática', period: '31 a 60 dias', p: 'Média', expected_result: 'Rotinas simples documentadas e testadas.' },
+    { phase: 'Acompanhar e melhorar', period: '61 a 90 dias', p: 'Baixa', expected_result: 'Primeiro ciclo de acompanhamento estruturado.' },
   ];
-  const roadmap = phases.map((ph) => ({
-    phase: ph.phase, period: ph.period,
-    actions: recommendations.filter((r) => r.priority === ph.p).map((r) => ({ recommendation_id: r.id, title: r.title, depends_on: depsOf(r.question_codes[0]) })),
-  })).filter((ph) => ph.actions.length);
+  const roadmap = phases.map((ph) => {
+    const actions = recommendations.filter((r) => r.priority === ph.p).map((r) => ({ recommendation_id: r.id, title: r.title, depends_on: depsOf(r.question_codes[0]) }));
+    return {
+      phase: ph.phase,
+      period: ph.period,
+      activities: actions.slice(0, 5).map((a) => a.title),
+      expected_result: ph.expected_result,
+      actions,
+    };
+  }).filter((ph) => ph.actions.length);
 
   const nsQs = qs.filter((q) => q.answer_type === 'NS').map((q) => q.code);
   const naQs = qs.filter((q) => q.answer_type === 'NA').map((q) => q.code);
@@ -99,7 +106,7 @@ export async function generateLocal(payload) {
 
   const limitations = [
     'As respostas foram declaradas pela empresa e não passaram por verificação humana; evidências anexadas não comprovam automaticamente as práticas.',
-    'Este relatório é orientativo e não representa auditoria, certificação ou conformidade oficial com COBIT, ISO/IEC 27001/27002, ITIL ou CMMI.',
+    'Este relatório é orientativo e não representa auditoria, certificação ou conformidade oficial com COBIT, ISO/IEC 27001/27002, ITIL 4 ou CMMI.',
   ];
   if (r.result_status !== 'APTO_REVISAO') limitations.push(`Diagnóstico ${r.result_status === 'SEM_DADOS' ? 'sem dados suficientes' : 'preliminar'}: cobertura de ${pct(r.overall_coverage)}${r.dimensions_without_data?.length ? ` e dimensões sem nota (${r.dimensions_without_data.join(', ')})` : ''}.`);
   if (nsQs.length) limitations.push(`As perguntas ${nsQs.join(', ')} foram respondidas como "Não sei informar" e não foram tratadas como ausência de prática; recomenda-se levantar essas informações.`);
@@ -128,9 +135,21 @@ export async function generateLocal(payload) {
         weakness: 'Nenhuma prática com nota igual ou inferior a 2 foi declarada.', potential_consequence: 'Práticas não revisadas tendem a se deteriorar com o tempo.',
         recommended_action: 'Revisar anualmente as práticas e acompanhar indicadores.', expected_benefit: 'Sustentar o nível de maturidade alcançado.',
         priority: 'Baixa', priority_justification: 'Nível de maturidade elevado em todas as perguntas.', risk: 'Baixo', impact: 'Baixo', effort: 'Baixo',
+        deliverable: 'Registro anual de revisão das práticas e indicadores.',
       }],
       action_plan,
-      roadmap: roadmap.length ? roadmap : [{ phase: 'Prazo posterior', period: 'De 61 a 90 dias', actions: [{ recommendation_id: 'R01', title: 'Manter e monitorar as práticas atuais', depends_on: [] }] }],
+      roadmap: roadmap.length ? roadmap : [{
+        phase: 'Acompanhar e melhorar',
+        period: '61 a 90 dias',
+        activities: ['Revisar anualmente as práticas e acompanhar indicadores.'],
+        expected_result: 'Primeiro ciclo de acompanhamento estruturado.',
+        actions: [{ recommendation_id: 'R01', title: 'Manter e monitorar as práticas atuais', depends_on: [] }],
+      }],
+      follow_up: {
+        who: 'O gestor da empresa, com apoio de pessoa responsável pela TI ou prestador autorizado. Os papéis são sugeridos, não atribuídos automaticamente.',
+        how_to_prove: 'Guardar registros simples: listas de acessos, testes de restauração, inventário de sistemas e cadastro de fornecedores.',
+        next_step: 'Escolha uma ação da primeira fase, defina um responsável e registre a data planejada. O diagnóstico deverá ser revisado depois da implementação das melhorias.',
+      },
       limitations,
       final_considerations: 'Recomenda-se começar pelas ações de curto prazo, que reduzem os riscos mais relevantes com menor esforço, e repetir o diagnóstico após a execução do roadmap para acompanhar a evolução. Decisões que envolvam investimentos relevantes, questões legais ou segurança crítica devem ser avaliadas por profissionais competentes.',
     },

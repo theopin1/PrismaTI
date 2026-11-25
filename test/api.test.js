@@ -34,8 +34,8 @@ before(async () => {
   srv = await startTestServer();
   admin = client(srv.base);
   assert.equal((await admin.login('admin@prismati.test', 'AdminSenha123')).status, 200);
-  A = await createCompanyWithUsers('Empresa A', '11111111000111');
-  B = await createCompanyWithUsers('Empresa B', '22222222000122');
+  A = await createCompanyWithUsers('Empresa A', '11222333000181');
+  B = await createCompanyWithUsers('Empresa B', '11444777000161');
 });
 after(async () => { await srv.close(); });
 
@@ -230,14 +230,17 @@ test('CA-MVP-11/12/13/14 · relatório por IA assíncrono, rastreável, com road
   assert.equal((await gB.get(`${API}/reports/${A.report}/pdf`)).status, 404);
 });
 
-test('CA-MVP-15 · exportação em PDF legível', async () => {
+test('CA-MVP-15 · exportação em PDF legível (Gestor e Responsável de TI)', async () => {
   const res = await gA.get(`${API}/reports/${A.report}/pdf`, { raw: true });
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('content-type'), 'application/pdf');
   const buf = Buffer.from(await res.arrayBuffer());
   assert.equal(buf.subarray(0, 5).toString(), '%PDF-');
   assert.ok(buf.length > 5000);
-  assert.equal((await tiA.get(`${API}/reports/${A.report}/pdf`)).status, 403);
+  const tiPdf = await tiA.get(`${API}/reports/${A.report}/pdf?inline=1`, { raw: true });
+  assert.equal(tiPdf.status, 200);
+  assert.ok(String(tiPdf.headers.get('content-disposition')).startsWith('inline;'));
+  assert.equal((await gA.get(`${API}/reports`)).data.items.length, 1);
 });
 
 test('CA-MVP-16 · falha da IA mantém o diagnóstico e permite nova tentativa controlada', async () => {
@@ -312,7 +315,7 @@ test('Versionamento: versão publicada não é editável; nova versão não alte
 });
 
 test('Inativar usuário ou empresa encerra o acesso sem apagar o histórico', async () => {
-  const users = (await admin.get(`${API}/admin/users?q=ti@11111111000111`)).data.items;
+  const users = (await admin.get(`${API}/admin/users?q=ti@11222333000181`)).data.items;
   assert.equal((await admin.patch(`${API}/admin/users/${users[0].id}/status`, { status: 'INACTIVE' })).status, 200);
   assert.equal((await tiA.get(`${API}/assessments`)).status, 401);
   assert.equal((await tiA.login(A.TI.email, 'SenhaForte123')).status, 401);
@@ -351,6 +354,68 @@ test('Erros padronizados com código de rastreamento', async () => {
   assert.equal(r.status, 404);
   assert.ok(r.data.error.code && r.data.error.message && r.data.error.traceId);
   assert.ok(r.headers.get('x-request-id'));
+});
+
+test('CNPJ inválido é rejeitado na criação de empresa', async () => {
+  const r = await admin.post(`${API}/admin/companies`, { legal_name: 'CNPJ Ruim', cnpj: '11111111000111' });
+  assert.equal(r.status, 400);
+  assert.ok(r.data.error.fields.cnpj);
+});
+
+test('Gestor substituto assume avaliação em andamento após desvinculação', async () => {
+  const compA = await admin.get(`${API}/admin/companies/${A.id}`);
+  const inProg = compA.data.assessments.find((a) => a.status === 'IN_PROGRESS');
+  assert.ok(inProg);
+  const gAUsers = (await admin.get(`${API}/admin/users?q=${encodeURIComponent(A.GESTOR.email)}`)).data.items;
+  assert.equal((await admin.patch(`${API}/admin/memberships`, { user_id: gAUsers[0].id, company_id: A.id, status: 'INACTIVE' })).status, 200);
+  const inv2 = await admin.post(`${API}/admin/invitations`, { company_id: A.id, email: 'gestor2@11222333000181.test', name: 'Gestor 2', role: 'GESTOR' });
+  assert.equal(inv2.status, 201);
+  const gA2 = await activateAndLogin({ email: 'gestor2@11222333000181.test', token: tokenOf(inv2.data.activation_link) }, 'Gestor 2');
+  const det = await gA2.get(`${API}/assessments/${inProg.id}`);
+  assert.equal(det.data.can_edit, true);
+  assert.equal((await gA2.put(`${API}/assessments/${inProg.id}/answers/${questions[0].id}`, { type: 'SCORE', score: 2 })).status, 200);
+});
+
+test('Rascunho do questionário permite criar dimensão, adicionar e excluir pergunta', async () => {
+  const versions = (await admin.get(`${API}/admin/instrument-versions`)).data.items;
+  const clone = await admin.post(`${API}/admin/instrument-versions/${versions[0].id}/clone`, { version: '2.0' });
+  assert.equal(clone.status, 201);
+  const vid = clone.data.id;
+  const dim = await admin.post(`${API}/admin/instrument-versions/${vid}/dimensions`, { code: 'SEG', name: 'Segurança Extra', description: 'Teste' });
+  assert.equal(dim.status, 201);
+  const qAdd = await admin.post(`${API}/admin/instrument-versions/${vid}/questions`, {
+    dimension_id: dim.data.id,
+    code: 'P31',
+    theme: 'Tema extra',
+    title: 'Pergunta extra criada no rascunho?',
+    references_text: 'COBIT 2019 APO01',
+    options: [0, 1, 2, 3, 4].map((s) => ({ score: s, description: `Nível ${s} da pergunta` })),
+  });
+  assert.equal(qAdd.status, 201);
+  const full = (await admin.get(`${API}/admin/instrument-versions/${vid}`)).data;
+  assert.equal(full.dimensions.length, 8);
+  assert.equal(full.questions.length, 31);
+  assert.equal((await admin.del(`${API}/admin/instrument-versions/${vid}/questions/${qAdd.data.id}`)).status, 200);
+  const afterDel = (await admin.get(`${API}/admin/instrument-versions/${vid}`)).data;
+  assert.equal(afterDel.questions.length, 30);
+});
+
+test('Criação de novo administrador e redefinição de senha assistida pelo admin', async () => {
+  const created = await admin.post(`${API}/admin/admins`, { name: 'Segundo Admin', email: 'admin2@prismati.test' });
+  assert.equal(created.status, 201);
+  assert.ok(created.data.setup_link);
+  const tok1 = tokenOf(created.data.setup_link);
+  const a2 = client(srv.base);
+  assert.equal((await a2.post(`${API}/auth/password/reset`, { token: tok1, password: 'Admin2Senha123' })).status, 200);
+  assert.equal((await a2.login('admin2@prismati.test', 'Admin2Senha123')).status, 200);
+  assert.equal((await a2.get(`${API}/admin/companies`)).status, 200);
+
+  const reset = await admin.post(`${API}/admin/users/${created.data.id}/reset-password`, {});
+  assert.equal(reset.status, 200);
+  assert.ok(reset.data.reset_link);
+  const tok2 = tokenOf(reset.data.reset_link);
+  assert.equal((await client(srv.base).post(`${API}/auth/password/reset`, { token: tok2, password: 'Admin2Nova123' })).status, 200);
+  assert.equal((await client(srv.base).login('admin2@prismati.test', 'Admin2Nova123')).status, 200);
 });
 
 test('RNF-005 · bloqueio após tentativas de login incorretas', async () => {

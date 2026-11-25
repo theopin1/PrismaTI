@@ -292,10 +292,12 @@ paths:
     get: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Situação da solicitação, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } } } }
   /report-jobs/{id}/retry:
     post: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Nova tentativa de uma solicitação com falha (somente GESTOR), responses: { '202': { description: Na fila } } }
+  /reports:
+    get: { tags: [Relatórios], summary: Histórico de relatórios em PDF da empresa, responses: { '200': { description: Lista de relatórios salvos } } }
   /reports/{id}:
     get: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Relatório com os resultados oficiais, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } } } }
   /reports/{id}/pdf:
-    get: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }], summary: Exporta o relatório em PDF (GESTOR ou admin), responses: { '200': { description: PDF, content: { application/pdf: {} } }, '403': { $ref: '#/components/responses/Error' } } }
+    get: { tags: [Relatórios], parameters: [{ $ref: '#/components/parameters/id' }, { name: inline, in: query, schema: { type: string, enum: ['1'] } }], summary: Exporta o relatório em PDF (GESTOR, TI ou admin; use inline=1 para abrir no navegador), responses: { '200': { description: PDF, content: { application/pdf: {} } } } }
 
   /admin/companies:
     get: { tags: [Administração], parameters: [{ name: q, in: query, schema: { type: string } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Lista empresas, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Page' } } } } } }
@@ -307,8 +309,12 @@ paths:
     patch: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Ativa ou inativa (preserva histórico e encerra sessões), requestBody: { content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [ACTIVE, INACTIVE] } } } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
   /admin/users:
     get: { tags: [Administração], parameters: [{ name: q, in: query, schema: { type: string } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Lista usuários, responses: { '200': { description: OK } } }
+  /admin/admins:
+    post: { tags: [Administração], summary: Cria administrador da plataforma e gera link para definição de senha, responses: { '201': { description: Criado } } }
   /admin/users/{id}/status:
     patch: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Ativa ou inativa usuário, requestBody: { content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [ACTIVE, INACTIVE] } } } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/users/{id}/reset-password:
+    post: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Gera link de redefinição de senha para usuário ativo, responses: { '200': { description: OK } } }
   /admin/memberships:
     patch: { tags: [Administração], summary: Altera perfil ou desvincula usuário da empresa, requestBody: { content: { application/json: { schema: { type: object, required: [user_id, company_id], properties: { user_id: { type: string }, company_id: { type: string }, role: { type: string, enum: [GESTOR, TI] }, status: { type: string, enum: [ACTIVE, INACTIVE] } } } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
   /admin/invitations:
@@ -329,6 +335,12 @@ paths:
     post: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Cria rascunho a partir de uma versão, requestBody: { content: { application/json: { schema: { type: object, properties: { version: { type: string, example: '1.1' } } } } } }, responses: { '201': { description: Criada } } }
   /admin/instrument-versions/{id}/publish:
     post: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Publica o rascunho e arquiva a versão anterior, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /admin/instrument-versions/{vid}/dimensions:
+    post:
+      tags: [Administração]
+      summary: Cria dimensão no rascunho
+      parameters: [{ name: vid, in: path, required: true, schema: { type: string } }]
+      responses: { '201': { description: Criada }, '409': { $ref: '#/components/responses/Error' } }
   /admin/instrument-versions/{vid}/dimensions/{did}:
     patch:
       tags: [Administração]
@@ -336,12 +348,23 @@ paths:
       parameters: [{ name: vid, in: path, required: true, schema: { type: string } }, { name: did, in: path, required: true, schema: { type: string } }]
       requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, description: { type: string } } } } } }
       responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } }
+  /admin/instrument-versions/{vid}/questions:
+    post:
+      tags: [Administração]
+      summary: Adiciona pergunta ao rascunho
+      parameters: [{ name: vid, in: path, required: true, schema: { type: string } }]
+      responses: { '201': { description: Criada }, '409': { $ref: '#/components/responses/Error' } }
   /admin/instrument-versions/{vid}/questions/{qid}:
     patch:
       tags: [Administração]
       summary: Edita pergunta, alternativas (exatamente 5, notas 0 a 4) e referências (somente rascunho)
       parameters: [{ name: vid, in: path, required: true, schema: { type: string } }, { name: qid, in: path, required: true, schema: { type: string } }]
       requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } }
+    delete:
+      tags: [Administração]
+      summary: Exclui pergunta do rascunho
+      parameters: [{ name: vid, in: path, required: true, schema: { type: string } }, { name: qid, in: path, required: true, schema: { type: string } }]
       responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } }
   /admin/assessments:
     get: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Todas as avaliações, responses: { '200': { description: OK } } }

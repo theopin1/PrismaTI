@@ -36,6 +36,7 @@ test('Administrador ativa verificação em duas etapas e passa a precisar do có
   const { totp } = await import('../src/lib/security.js');
   const setup = await admin.post('/api/v1/auth/mfa/setup', {});
   assert.ok(setup.data.secret);
+  assert.ok(typeof setup.data.qr_svg === 'string' && setup.data.qr_svg.startsWith('<svg'));
   assert.equal((await admin.post('/api/v1/auth/mfa/enable', { code: '000000' })).status, 400);
   assert.equal((await admin.post('/api/v1/auth/mfa/enable', { code: totp(setup.data.secret) })).status, 200);
   const u = client(srv.base);
@@ -47,6 +48,8 @@ test('Administrador ativa verificação em duas etapas e passa a precisar do có
   const ok = await u.post('/api/v1/auth/login', { email: 'admin@prismati.test', password: 'AdminSenha123', mfa_code: totp(setup.data.secret) });
   assert.equal(ok.status, 200);
   assert.equal((await u.get('/api/v1/auth/me')).data.mfa_enabled, true);
+  assert.equal((await u.post('/api/v1/auth/mfa/disable', { code: totp(setup.data.secret) })).status, 200);
+  assert.equal((await u.get('/api/v1/auth/me')).data.mfa_enabled, false);
 });
 
 test('Senhas são armazenadas apenas como hash', async () => {

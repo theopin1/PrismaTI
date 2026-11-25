@@ -31,6 +31,8 @@ function renderShell() {
         <h4>Seu progresso</h4>
         <div class="progress"><i id="pbar"></i></div>
         <div class="pct" id="ptext"></div>
+        <div class="small muted" id="pcov" style="margin-top:6px"></div>
+        <div class="small" id="pcov-warn" style="margin-top:8px;color:#a26b00;display:none"></div>
         <ul class="dim-nav" id="dimnav"></ul>
         ${canEdit ? '' : `<p class="small muted" style="margin-top:18px">${me.role === 'TI' ? 'Modo consulta: o Responsável de TI pode ver as respostas e orientar o Gestor, mas não pode alterá-las.' : 'Somente leitura.'}</p>`}
         <p class="small muted" style="margin-top:18px">Instrumento v${esc(assessment.instrument.version)} · ${esc(assessment.company.trade_name || assessment.company.legal_name)}</p>
@@ -42,8 +44,21 @@ function renderShell() {
 function renderSide() {
   const total = inst.questions.length;
   const done = inst.questions.filter(isAnswered).length;
+  const naJust = inst.questions.filter((q) => answers[q.id]?.type === 'NA' && (answers[q.id]?.justification || '').trim()).length;
+  const scored = inst.questions.filter((q) => answers[q.id]?.type === 'SCORE').length;
+  const nsCount = inst.questions.filter((q) => answers[q.id]?.type === 'NS').length;
+  const app = total - naJust;
+  const cov = app > 0 ? (scored / app) * 100 : null;
   $('#pbar').style.width = `${(done / total) * 100}%`;
   $('#ptext').textContent = `${done} de ${total} perguntas respondidas (${pct((done / total) * 100, 0)})`;
+  $('#pcov').textContent = `Cobertura p/ cálculo: ${cov === null ? '—' : pct(cov, 0)}${naJust || nsCount ? ` (${naJust} NA · ${nsCount} NS)` : ''}`;
+  const warn = $('#pcov-warn');
+  if (nsCount > 0 && done > 0 && (cov < 80 || nsCount > Math.floor(app * 0.2))) {
+    warn.textContent = '⚠ Mais de 20% das perguntas aplicáveis estão como "Não sei informar": cobertura final abaixo de 80% gera diagnóstico Preliminar.';
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
   $('#dimnav').innerHTML = dims.map((d, i) => {
     const n = d.questions.filter(isAnswered).length;
     const fix = d.questions.some(needsFix);
@@ -111,8 +126,8 @@ function renderPanel() {
     ${d.questions.map(questionHtml).join('')}
     <div class="alert" id="fin-alert"></div>
     <div class="panel-foot">
-      <button class="btn-ghost" id="prev" ${dimIndex === 0 ? 'disabled' : ''}>← Anterior</button>
-      ${last ? (canEdit ? '<button class="btn btn-primary" id="finish">Revisar e finalizar <span class="ic">✓</span></button>' : '') : '<button class="btn btn-primary" id="next">Próxima dimensão <span class="ic">→</span></button>'}
+      <button class="btn-ghost" id="prev" ${dimIndex === 0 ? 'disabled' : ''}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Anterior</button>
+      ${last ? (canEdit ? '<button class="btn btn-primary" id="finish">Revisar e finalizar <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span></button>' : '') : '<button class="btn btn-primary" id="next">Próxima dimensão <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span></button>'}
     </div>`;
   renderSide();
 }

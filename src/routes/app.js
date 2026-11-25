@@ -20,9 +20,15 @@ const r = Router();
 r.use(requireAuth);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.uploads.maxBytes, files: 1 } });
 
-// Somente o Gestor responsável pela avaliação altera e finaliza (2.3, RF-026).
+// Somente o Gestor da empresa altera e finaliza (2.3, RF-026); se outro Gestor assumir a empresa, assume a avaliação em andamento.
 function assertManager(req, assessment) {
-  if (req.user.role !== 'GESTOR' || assessment.manager_user_id !== req.user.id) throw forbidden('Somente o Gestor responsável pode alterar ou finalizar esta avaliação.');
+  if (req.user.role !== 'GESTOR' || req.user.companyId !== assessment.company_id) {
+    throw forbidden('Somente o Gestor responsável pode alterar ou finalizar esta avaliação.');
+  }
+  if (assessment.status === 'IN_PROGRESS' && assessment.manager_user_id !== req.user.id) {
+    run('UPDATE assessments SET manager_user_id = ?, updated_at = ? WHERE id = ?', req.user.id, nowIso(), assessment.id);
+    assessment.manager_user_id = req.user.id;
+  }
 }
 // O administrador só vê respostas e evidências se a configuração permitir (2.2, RNF-010).
 function canSeeAnswers(req) {
@@ -62,7 +68,9 @@ r.get('/instrument-versions/:id/questions', (req, res) => {
 // ---------- Avaliações ----------
 r.get('/assessments', requireRole('GESTOR', 'TI'), (req, res) => {
   res.json({ items: all(`SELECT a.id, a.status, a.started_at, a.finalized_at, a.updated_at, v.version, r.overall_maturity, r.overall_classification, r.result_status,
-                                (SELECT COUNT(*) FROM ai_reports x WHERE x.assessment_id = a.id) AS reports
+                                (SELECT COUNT(*) FROM ai_reports x WHERE x.assessment_id = a.id) AS reports,
+                                (SELECT x.id FROM ai_reports x WHERE x.assessment_id = a.id ORDER BY x.report_version DESC LIMIT 1) AS latest_report_id,
+                                (SELECT x.report_version FROM ai_reports x WHERE x.assessment_id = a.id ORDER BY x.report_version DESC LIMIT 1) AS latest_report_version
                          FROM assessments a JOIN instrument_versions v ON v.id = a.instrument_version_id LEFT JOIN assessment_results r ON r.assessment_id = a.id
                          WHERE a.company_id = ? ORDER BY a.started_at DESC`, req.user.companyId) });
 });
@@ -75,7 +83,7 @@ r.post('/assessments', requireRole('GESTOR'), (req, res) => {
 
 r.get('/assessments/:id', (req, res) => {
   const a = loadAssessmentOr404(req, req.params.id);
-  res.json({ ...A.getAssessmentDetail(a, { includeAnswers: canSeeAnswers(req) }), can_edit: req.user.role === 'GESTOR' && a.manager_user_id === req.user.id && a.status === 'IN_PROGRESS' });
+  res.json({ ...A.getAssessmentDetail(a, { includeAnswers: canSeeAnswers(req) }), can_edit: req.user.role === 'GESTOR' && req.user.companyId === a.company_id && a.status === 'IN_PROGRESS' });
 });
 
 r.get('/assessments/:id/progress', (req, res) => {
@@ -209,6 +217,21 @@ r.post('/report-jobs/:id/retry', (req, res) => {
   res.status(202).json(out);
 });
 
+r.get('/reports', requireRole('GESTOR', 'TI'), (req, res) => {
+  const items = all(
+    `SELECT rp.id, rp.assessment_id, rp.report_version, rp.provider, rp.model_name, rp.generated_at,
+            a.finalized_at, v.version AS instrument_version, r.overall_maturity, r.overall_classification
+     FROM ai_reports rp
+     JOIN assessments a ON a.id = rp.assessment_id
+     JOIN instrument_versions v ON v.id = a.instrument_version_id
+     LEFT JOIN assessment_results r ON r.assessment_id = a.id
+     WHERE rp.company_id = ?
+     ORDER BY rp.generated_at DESC`,
+    req.user.companyId,
+  );
+  res.json({ items });
+});
+
 function loadReport(req, id) {
   const rep = R.getReportRow(id);
   // Relatório de uma empresa nunca é entregue a outra (RNF-035 / CA-MVP-18)
@@ -223,13 +246,13 @@ r.get('/reports/:id', (req, res) => {
 
 r.get('/reports/:id/pdf', (req, res) => {
   const rep = loadReport(req, req.params.id);
-  if (!req.user.is_platform_admin && req.user.role !== 'GESTOR') throw forbidden('A exportação em PDF é feita pelo Gestor.');
   const a = one('SELECT * FROM assessments WHERE id = ?', rep.assessment_id);
   const company = one('SELECT legal_name, trade_name FROM companies WHERE id = ?', a.company_id);
   const results = { ...A.getResults(a), instrument_version: one('SELECT version FROM instrument_versions WHERE id = ?', a.instrument_version_id).version };
   audit(req, 'report.exported', { companyId: a.company_id, entityType: 'report', entityId: rep.id });
+  const disp = req.query.inline === '1' ? 'inline' : 'attachment';
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="PrismaTI-relatorio-v${rep.report_version}.pdf"`);
+  res.setHeader('Content-Disposition', `${disp}; filename="PrismaTI-relatorio-v${rep.report_version}.pdf"`);
   renderReportPdf(res, { company, assessment: a, results, report: JSON.parse(rep.content), reportMeta: rep });
 });
 

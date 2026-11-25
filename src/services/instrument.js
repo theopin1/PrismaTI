@@ -20,7 +20,7 @@ const FRAMEWORK_PATTERNS = [
   [/^COBIT/i, 'COBIT', '2019'],
   [/^ISO(\/IEC)?\s*27001/i, 'ISO/IEC 27001', '2022'],
   [/^ISO(\/IEC)?\s*27002/i, 'ISO/IEC 27002', '2022'],
-  [/^ITIL/i, 'ITIL', '4'],
+  [/^ITIL/i, 'ITIL 4', '4'],
   [/^CMMI/i, 'CMMI', 'DEV v1.3'],
   [/LGPD|legisla/i, 'LGPD', '13.709/2018'],
 ];
@@ -52,7 +52,7 @@ export function seedInstrument() {
   tx(() => {
     const instrumentId = uuid();
     run('INSERT INTO assessment_instruments (id, name, description, status) VALUES (?,?,?,?)',
-      instrumentId, 'Instrumento PrismaTI', 'Diagnóstico inicial de maturidade em TI para PMEs (COBIT, ISO/IEC 27001/27002, ITIL e CMMI).', 'ACTIVE');
+      instrumentId, 'Instrumento PrismaTI', 'Diagnóstico inicial de maturidade em TI para PMEs (COBIT, ISO/IEC 27001/27002, ITIL 4 e CMMI).', 'ACTIVE');
     const versionId = uuid();
     run('INSERT INTO instrument_versions (id, instrument_id, version, methodology_version, status, published_at, created_at) VALUES (?,?,?,?,?,?,?)',
       versionId, instrumentId, '1.0', 'calc-1.0.0', 'PUBLISHED', nowIso(), nowIso());
@@ -151,6 +151,20 @@ export function cloneVersion(sourceId, newVersion) {
   });
 }
 
+export function createDimension(versionId, { code, name, description }) {
+  assertDraft(versionId);
+  const normCode = String(code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{2,10}$/.test(normCode)) throw badRequest('Código da dimensão inválido.', { code: 'Use 2 a 10 letras ou números (ex.: GOV).' });
+  if (one('SELECT 1 FROM dimensions WHERE instrument_version_id = ? AND code = ?', versionId, normCode)) {
+    throw badRequest('Já existe uma dimensão com este código.', { code: 'Código já utilizado nesta versão.' });
+  }
+  const order = (one('SELECT MAX(display_order) AS m FROM dimensions WHERE instrument_version_id = ?', versionId).m || 0) + 1;
+  const id = uuid();
+  run('INSERT INTO dimensions (id, instrument_version_id, code, name, description, display_order) VALUES (?,?,?,?,?,?)',
+    id, versionId, normCode, String(name || '').trim(), description ? String(description).trim() : null, order);
+  return { id };
+}
+
 export function updateDimension(versionId, dimensionId, data) {
   assertDraft(versionId);
   const d = one('SELECT * FROM dimensions WHERE id = ? AND instrument_version_id = ?', dimensionId, versionId);
@@ -159,6 +173,53 @@ export function updateDimension(versionId, dimensionId, data) {
 }
 
 const Q_FIELDS = ['theme', 'title', 'explanation', 'evidence_guidance', 'verification_guidance', 'no_file_guidance', 'privacy_guidance', 'applicability_note', 'first_recommendation', 'primary_framework'];
+
+export function createQuestion(versionId, data) {
+  assertDraft(versionId);
+  const dim = one('SELECT id FROM dimensions WHERE id = ? AND instrument_version_id = ?', data.dimension_id, versionId);
+  if (!dim) throw badRequest('Dimensão inválida.', { dimension_id: 'Selecione uma dimensão desta versão.' });
+  const normCode = String(data.code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{2,12}$/.test(normCode)) throw badRequest('Código da pergunta inválido.', { code: 'Use 2 a 12 letras ou números (ex.: P31).' });
+  if (one('SELECT 1 FROM questions WHERE instrument_version_id = ? AND code = ?', versionId, normCode)) {
+    throw badRequest('Já existe uma pergunta com este código.', { code: 'Código já utilizado nesta versão.' });
+  }
+  const title = String(data.title || '').trim();
+  if (title.length < 5) throw badRequest('Informe o texto da pergunta.', { title: 'Mínimo 5 caracteres.' });
+  const options = data.options || [];
+  const scores = options.map((o) => o.score).sort();
+  if (options.length !== 5 || scores.join() !== '0,1,2,3,4') {
+    throw badRequest('Cada pergunta deve ter exatamente cinco alternativas, com notas de 0 a 4.', { options: 'Informe as cinco alternativas.' });
+  }
+  return tx(() => {
+    const qid = uuid();
+    const order = (one('SELECT MAX(display_order) AS m FROM questions WHERE instrument_version_id = ?', versionId).m || 0) + 1;
+    run(`INSERT INTO questions (id, instrument_version_id, dimension_id, code, theme, title, explanation, evidence_guidance,
+          verification_guidance, no_file_guidance, privacy_guidance, applicability_note, first_recommendation, primary_framework, display_order)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      qid, versionId, data.dimension_id, normCode, data.theme ?? null, title, data.explanation ?? null, data.evidence_guidance ?? null,
+      data.verification_guidance ?? null, data.no_file_guidance ?? null, data.privacy_guidance ?? null, data.applicability_note ?? null,
+      data.first_recommendation ?? null, data.primary_framework ?? null, order);
+    for (const o of options) {
+      run('INSERT INTO answer_options (id, question_id, score, description, display_order) VALUES (?,?,?,?,?)', uuid(), qid, o.score, o.description, o.score + 1);
+    }
+    const refs = data.references || (typeof data.references_text === 'string' ? parseReferences(data.references_text, data.source_url) : []);
+    for (const r of refs) run('INSERT OR IGNORE INTO question_framework_references (id, question_id, framework_reference_id) VALUES (?,?,?)', uuid(), qid, upsertReference(r));
+    return { id: qid };
+  });
+}
+
+export function deleteQuestion(versionId, questionId) {
+  assertDraft(versionId);
+  const q = one('SELECT id FROM questions WHERE id = ? AND instrument_version_id = ?', questionId, versionId);
+  if (!q) throw notFound('Pergunta não encontrada.');
+  const count = one('SELECT COUNT(*) AS n FROM questions WHERE instrument_version_id = ?', versionId).n;
+  if (count <= 1) throw badRequest('A versão precisa manter pelo menos uma pergunta.');
+  tx(() => {
+    run('DELETE FROM question_framework_references WHERE question_id = ?', questionId);
+    run('DELETE FROM answer_options WHERE question_id = ?', questionId);
+    run('DELETE FROM questions WHERE id = ?', questionId);
+  });
+}
 
 export function updateQuestion(versionId, questionId, data) {
   assertDraft(versionId);
@@ -176,9 +237,10 @@ export function updateQuestion(versionId, questionId, data) {
       if (data.options.length !== 5 || scores.join() !== '0,1,2,3,4') throw badRequest('Cada pergunta deve ter exatamente cinco alternativas, com notas de 0 a 4.', { options: 'Informe as cinco alternativas.' });
       for (const o of data.options) run('UPDATE answer_options SET description = ? WHERE question_id = ? AND score = ?', o.description, questionId, o.score);
     }
-    if (data.references) {
+    if (data.references || typeof data.references_text === 'string') {
+      const refs = data.references || parseReferences(data.references_text, data.source_url);
       run('DELETE FROM question_framework_references WHERE question_id = ?', questionId);
-      for (const r of data.references) run('INSERT OR IGNORE INTO question_framework_references (id, question_id, framework_reference_id) VALUES (?,?,?)', uuid(), questionId, upsertReference(r));
+      for (const r of refs) run('INSERT OR IGNORE INTO question_framework_references (id, question_id, framework_reference_id) VALUES (?,?,?)', uuid(), questionId, upsertReference(r));
     }
   });
 }

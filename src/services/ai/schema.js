@@ -1,8 +1,8 @@
 // Estrutura versionada do relatório gerado pela IA (7.3 a 7.6, RNF-031).
 import { z } from 'zod';
 
-export const OUTPUT_SCHEMA_VERSION = 'report-schema-1.0';
-export const PROMPT_VERSION = 'prompt-1.0';
+export const OUTPUT_SCHEMA_VERSION = 'report-schema-1.1';
+export const PROMPT_VERSION = 'prompt-1.1';
 
 const Priority = z.enum(['Alta', 'Média', 'Baixa']);
 const Level = z.enum(['Baixo', 'Médio', 'Alto']);
@@ -38,6 +38,7 @@ export const ReportSchema = z.object({
     risk: Level,
     impact: Level,
     effort: Level,
+    deliverable: z.string(),
   })).min(1),
   action_plan: z.array(z.object({
     recommendation_id: z.string(),
@@ -52,8 +53,15 @@ export const ReportSchema = z.object({
   roadmap: z.array(z.object({
     phase: z.string(),
     period: z.string(),
+    activities: z.array(z.string()).min(1),
+    expected_result: z.string(),
     actions: z.array(z.object({ recommendation_id: z.string(), title: z.string(), depends_on: z.array(z.string()) })),
   })).min(1),
+  follow_up: z.object({
+    who: z.string(),
+    how_to_prove: z.string(),
+    next_step: z.string(),
+  }),
   limitations: z.array(z.string()),
   final_considerations: z.string(),
 });

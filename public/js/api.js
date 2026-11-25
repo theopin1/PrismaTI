@@ -112,3 +112,8 @@ export function confirmDialog(title, text, okLabel = 'Confirmar') {
 }
 
 export function fmtBytes(n) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.ceil(n / 1024)} KB`; }
+
+export function fmtCnpj(s) {
+  const d = String(s || '').replace(/\D/g, '');
+  return d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : (s || '—');
+}

@@ -6,6 +6,7 @@ import { one, run, tx } from '../db.js';
 import { uuid, nowIso, addMinutes, randomToken, sha256 } from '../lib/util.js';
 import { parse, badRequest, unauthorized, AppError } from '../lib/errors.js';
 import { hashPassword, verifyPassword, strongPassword, PASSWORD_RULE, newTotpSecret, verifyTotp } from '../lib/security.js';
+import { qrSvg } from '../lib/qr.js';
 import { createSession, destroySession, revokeUserSessions, requireAuth } from '../lib/auth.js';
 import { rateLimit } from '../lib/ratelimit.js';
 import { audit } from '../lib/audit.js';
@@ -133,7 +134,8 @@ r.post('/mfa/setup', requireAuth, (req, res) => {
   const secret = newTotpSecret();
   run('UPDATE users SET mfa_secret = ?, mfa_enabled = 0 WHERE id = ?', secret, req.user.id);
   const label = encodeURIComponent(`PrismaTI:${req.user.email}`);
-  res.json({ secret, otpauth_url: `otpauth://totp/${label}?secret=${secret}&issuer=PrismaTI` });
+  const otpauthUrl = `otpauth://totp/${label}?secret=${secret}&issuer=PrismaTI`;
+  res.json({ secret, otpauth_url: otpauthUrl, qr_svg: qrSvg(otpauthUrl) });
 });
 
 r.post('/mfa/enable', requireAuth, (req, res) => {
