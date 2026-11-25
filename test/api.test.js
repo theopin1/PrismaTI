@@ -449,6 +449,22 @@ test('Criação de usuários por perfil (ADMIN, GESTOR, TI) e redefinição de s
   const meC = await gCClient.get(`${API}/auth/me`);
   assert.equal(meC.data.role, 'GESTOR');
   assert.equal(meC.data.company.id, compC.data.id);
+
+  // Edição de usuário + filtro por perfil
+  const edTi = await admin.patch(`${API}/admin/users/${tiCRes.data.id}`, { name: 'TI C Editado', email: 'tic.novo@prismati.test', role: 'TI', company_id: compC.data.id });
+  assert.equal(edTi.status, 200);
+  assert.equal(edTi.data.name, 'TI C Editado');
+  const dupGest = await admin.patch(`${API}/admin/users/${tiCRes.data.id}`, { name: 'TI C Editado', email: 'tic.novo@prismati.test', role: 'GESTOR', company_id: compC.data.id });
+  assert.equal(dupGest.status, 400);
+  assert.ok(dupGest.data.error.fields.role);
+  const onlyTi = await admin.get(`${API}/admin/users?role=TI&q=tic.novo`);
+  assert.equal(onlyTi.data.items.length, 1);
+  const promAdm = await admin.patch(`${API}/admin/users/${tiCRes.data.id}`, { name: 'TI Virou Admin', email: 'tic.novo@prismati.test', role: 'ADMIN' });
+  assert.equal(promAdm.status, 200);
+  assert.equal(promAdm.data.company_id, null);
+  const meAdm = (await admin.get(`${API}/auth/me`)).data;
+  const selfDemote = await admin.patch(`${API}/admin/users/${meAdm.id}`, { name: meAdm.name, email: meAdm.email, role: 'TI', company_id: compC.data.id });
+  assert.equal(selfDemote.status, 400);
 });
 
 test('RNF-005 · bloqueio após tentativas de login incorretas', async () => {

@@ -231,12 +231,68 @@ async function viewUsuarios(p = 1, q = '', role = '') {
   </section>`;
 
   let curPage = p;
+  let lastUsers = [];
+
+  async function openUserModal(u = null) {
+    let activeCos = [];
+    try {
+      const cos = await get('/admin/companies?pageSize=100');
+      activeCos = cos.items.filter((c) => c.status === 'ACTIVE');
+    } catch (e) {
+      return toast(e.message, true);
+    }
+    const isEdit = !!u;
+    const initRole = u ? (u.is_platform_admin ? 'ADMIN' : (u.role || 'GESTOR')) : 'GESTOR';
+    const initCompany = u?.company_id || '';
+    const m = modal(`<h3>${isEdit ? 'Editar usuário' : 'Novo usuário'}</h3><p class="small muted">${isEdit ? 'Atualize nome, e-mail, perfil de acesso ou empresa vinculada.' : 'Cria uma conta de acesso (empresário/gestor, TI ou administrador) e gera o link para definição da senha.'}</p>
+      <form id="uf" style="margin-top:14px">${field('name', 'Nome *', `value="${esc(u?.name || '')}" required`)}${field('email', 'E-mail *', `type="email" value="${esc(u?.email || '')}" required`)}
+      ${select('role', 'Perfil *', [['GESTOR', 'Gestor da Empresa (Empresário)'], ['TI', 'Responsável de TI (somente leitura)'], ['ADMIN', 'Administrador da plataforma']], initRole)}
+      <div id="company-wrap">${select('company_id', 'Empresa *', [['', 'Selecione a empresa'], ...activeCos.map((c) => [c.id, c.trade_name || c.legal_name])], initCompany)}${!activeCos.length ? '<div class="hint" style="color:var(--bad);margin-top:-8px;margin-bottom:10px">Nenhuma empresa ativa cadastrada. Cadastre uma empresa antes ou escolha Administrador.</div>' : ''}</div>
+      <div class="alert"></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn-sm ghost" data-close>Cancelar</button><button class="btn-sm primary">${isEdit ? 'Salvar alterações' : 'Criar usuário'}</button></div></form>`);
+    const f = $('#uf', m.el);
+    const roleSel = f.elements.role;
+    const compWrap = $('#company-wrap', m.el);
+    const compSel = f.elements.company_id;
+    const syncRole = () => {
+      const isAdmin = roleSel.value === 'ADMIN';
+      compWrap.style.display = isAdmin ? 'none' : '';
+      compSel.required = !isAdmin;
+      if (isAdmin) compSel.value = '';
+    };
+    roleSel.addEventListener('change', syncRole);
+    syncRole();
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault(); clearFormErrors(f);
+      const payload = formData(f);
+      if (payload.role === 'ADMIN') delete payload.company_id;
+      try {
+        if (isEdit) {
+          await patch(`/admin/users/${u.id}`, payload);
+          m.close();
+          toast('Usuário atualizado.');
+          loadUsers(curPage);
+        } else {
+          const r = await post('/admin/users', payload);
+          m.close();
+          loadUsers(1);
+          if (r.setup_link) {
+            modal(`<h3>Usuário criado (${esc(ROLE_LABEL[r.role] || r.role)})</h3><p class="small muted">E-mail não configurado neste ambiente. Repasse o link de definição de senha:</p><p style="margin-top:12px"><span class="code">${esc(r.setup_link)}</span></p><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn-sm primary" data-close>Fechar</button></div>`);
+          } else {
+            toast('Usuário criado e link enviado por e-mail.');
+          }
+        }
+      } catch (err) { showFormErrors(f, err); }
+    });
+  }
+
   async function loadUsers(page = 1) {
     curPage = page;
     q = $('#q', pane).value;
     role = $('#role-filter', pane).value;
     const qs = `page=${page}&q=${encodeURIComponent(q)}${role ? `&role=${encodeURIComponent(role)}` : ''}`;
     const data = await get(`/admin/users?${qs}`);
+    lastUsers = data.items;
     $('#u-count', pane).textContent = `${data.total} usuário(s)`;
     const area = $('#tbl-area', pane);
     area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome do usuário</th><th>E-mail / Empresa</th><th>Data de criação</th><th>Tipo de acesso</th><th>MFA</th><th>Conta</th><th style="text-align:right">Ações</th></tr></thead><tbody>
@@ -251,6 +307,7 @@ async function viewUsuarios(p = 1, q = '', role = '') {
           <td class="small muted">${u.mfa_enabled ? 'Ativa' : '—'}</td>
           <td><span class="pill-dot ${ACC_BADGE[u.account_status]}">${ACC_LABEL[u.account_status]}</span></td>
           <td><div class="row" style="justify-content:flex-end">
+            <button class="icon-btn" data-edit-u="${u.id}" title="Editar usuário">${IC.edit}</button>
             ${u.account_status === 'ACTIVE' ? `<button class="icon-btn" data-reset="${u.id}" data-email="${esc(u.email)}" title="Redefinir senha">${IC.key}</button>` : ''}
             ${u.id === me.id || u.account_status === 'PENDING' ? '' : `<button class="icon-btn ${u.account_status === 'ACTIVE' ? 'danger' : ''}" data-st="${u.id}" data-to="${u.account_status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}" title="${u.account_status === 'ACTIVE' ? 'Inativar usuário' : 'Reativar usuário'}">${IC.power}</button>`}
           </div></td>
@@ -258,6 +315,10 @@ async function viewUsuarios(p = 1, q = '', role = '') {
       }).join('') || '<tr><td colspan="7" class="muted">Nenhum usuário encontrado.</td></tr>'}
       </tbody></table></div>`;
     area.appendChild(pager(data, loadUsers));
+    $$('[data-edit-u]', area).forEach((b) => b.addEventListener('click', () => {
+      const user = lastUsers.find((x) => x.id === b.dataset.editU);
+      if (user) openUserModal(user);
+    }));
     $$('[data-st]', area).forEach((b) => b.addEventListener('click', async () => {
       try { await patch(`/admin/users/${b.dataset.st}/status`, { status: b.dataset.to }); toast('Conta atualizada.'); loadUsers(curPage); } catch (e) { toast(e.message, true); }
     }));
@@ -276,48 +337,7 @@ async function viewUsuarios(p = 1, q = '', role = '') {
 
   $('#q', pane).addEventListener('input', debounce(() => loadUsers(1)));
   $('#role-filter', pane).addEventListener('change', () => loadUsers(1));
-  $('#new-user').addEventListener('click', async () => {
-    let activeCos = [];
-    try {
-      const cos = await get('/admin/companies?pageSize=100');
-      activeCos = cos.items.filter((c) => c.status === 'ACTIVE');
-    } catch (e) {
-      return toast(e.message, true);
-    }
-    const m = modal(`<h3>Novo usuário</h3><p class="small muted">Cria uma conta de acesso (empresário/gestor, TI ou administrador) e gera o link para definição da senha.</p>
-      <form id="uf" style="margin-top:14px">${field('name', 'Nome *', 'required')}${field('email', 'E-mail *', 'type="email" required')}
-      ${select('role', 'Perfil *', [['GESTOR', 'Gestor da Empresa (Empresário)'], ['TI', 'Responsável de TI (somente leitura)'], ['ADMIN', 'Administrador da plataforma']], 'GESTOR')}
-      <div id="company-wrap">${select('company_id', 'Empresa *', [['', 'Selecione a empresa'], ...activeCos.map((c) => [c.id, c.trade_name || c.legal_name])])}${!activeCos.length ? '<div class="hint" style="color:var(--bad);margin-top:-8px;margin-bottom:10px">Nenhuma empresa ativa cadastrada. Cadastre uma empresa antes ou escolha Administrador.</div>' : ''}</div>
-      <div class="alert"></div>
-      <div class="row" style="justify-content:flex-end"><button type="button" class="btn-sm ghost" data-close>Cancelar</button><button class="btn-sm primary">Criar usuário</button></div></form>`);
-    const f = $('#uf', m.el);
-    const roleSel = f.elements.role;
-    const compWrap = $('#company-wrap', m.el);
-    const compSel = f.elements.company_id;
-    const syncRole = () => {
-      const isAdmin = roleSel.value === 'ADMIN';
-      compWrap.style.display = isAdmin ? 'none' : '';
-      compSel.required = !isAdmin;
-      if (isAdmin) compSel.value = '';
-    };
-    roleSel.addEventListener('change', syncRole);
-    syncRole();
-    f.addEventListener('submit', async (e) => {
-      e.preventDefault(); clearFormErrors(f);
-      const payload = formData(f);
-      if (payload.role === 'ADMIN') delete payload.company_id;
-      try {
-        const r = await post('/admin/users', payload);
-        m.close();
-        loadUsers(1);
-        if (r.setup_link) {
-          modal(`<h3>Usuário criado (${esc(ROLE_LABEL[r.role] || r.role)})</h3><p class="small muted">E-mail não configurado neste ambiente. Repasse o link de definição de senha:</p><p style="margin-top:12px"><span class="code">${esc(r.setup_link)}</span></p><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn-sm primary" data-close>Fechar</button></div>`);
-        } else {
-          toast('Usuário criado e link enviado por e-mail.');
-        }
-      } catch (err) { showFormErrors(f, err); }
-    });
-  });
+  $('#new-user').addEventListener('click', () => openUserModal(null));
   await loadUsers(p);
 }
 

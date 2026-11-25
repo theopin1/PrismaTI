@@ -199,6 +199,61 @@ r.post('/admins', async (req, res) => {
   res.status(201).json(await createManagedUser(req, { ...b, role: 'ADMIN' }));
 });
 
+r.patch('/users/:id', (req, res) => {
+  const u = one('SELECT * FROM users WHERE id = ?', req.params.id);
+  if (!u) throw notFound('Usuário não encontrado.');
+  const b = parse(z.object({
+    name: z.string().trim().min(2, 'Informe o nome.').max(120),
+    email: z.string().trim().toLowerCase().email('Informe um e-mail válido.').max(200),
+    role: z.enum(['ADMIN', 'GESTOR', 'TI'], { message: 'Selecione um perfil válido.' }),
+    company_id: z.string().trim().optional().default(''),
+  }), req.body);
+
+  if (one('SELECT 1 FROM users WHERE email = ? AND id <> ?', b.email, u.id)) {
+    throw badRequest('Este e-mail já está cadastrado.', { email: 'E-mail já utilizado.' });
+  }
+  if (u.id === req.user.id && b.role !== 'ADMIN') {
+    throw badRequest('Você não pode remover o próprio perfil de administrador.', { role: 'Você não pode remover o próprio perfil de administrador.' });
+  }
+
+  const prevM = one(`SELECT * FROM company_memberships WHERE user_id = ? AND status = 'ACTIVE'`, u.id);
+  const now = nowIso();
+  let company = null;
+
+  if (b.role !== 'ADMIN') {
+    if (!b.company_id) throw badRequest('Selecione a empresa.', { company_id: 'Selecione a empresa.' });
+    company = one('SELECT * FROM companies WHERE id = ?', b.company_id);
+    if (!company) throw notFound('Empresa não encontrada.');
+    if (company.status !== 'ACTIVE') throw badRequest('A empresa está inativa.', { company_id: 'Selecione uma empresa ativa.' });
+    if (b.role === 'GESTOR') {
+      const g = one(`SELECT 1 FROM company_memberships WHERE company_id = ? AND role = 'GESTOR' AND status = 'ACTIVE' AND user_id <> ?`, company.id, u.id);
+      const pendingG = one(`SELECT 1 FROM invitations WHERE company_id = ? AND role = 'GESTOR' AND status = 'PENDING' AND expires_at > ? AND email <> ?`, company.id, now, b.email);
+      if (g || pendingG) throw badRequest('A empresa já possui um Gestor ativo ou convidado.', { role: 'Apenas um Gestor por empresa.' });
+    }
+  }
+
+  tx(() => {
+    run('UPDATE users SET name = ?, email = ?, is_platform_admin = ?, updated_at = ? WHERE id = ?',
+      b.name, b.email, b.role === 'ADMIN' ? 1 : 0, now, u.id);
+    if (b.role === 'ADMIN') {
+      run(`UPDATE company_memberships SET status = 'INACTIVE' WHERE user_id = ? AND status = 'ACTIVE'`, u.id);
+    } else if (prevM && prevM.company_id === company.id) {
+      run('UPDATE company_memberships SET role = ? WHERE id = ?', b.role, prevM.id);
+    } else {
+      run(`UPDATE company_memberships SET status = 'INACTIVE' WHERE user_id = ? AND status = 'ACTIVE'`, u.id);
+      run('INSERT INTO company_memberships (id, company_id, user_id, role, status, created_at) VALUES (?,?,?,?,?,?)',
+        uuid(), company.id, u.id, b.role, 'ACTIVE', now);
+    }
+  });
+
+  const prevRole = u.is_platform_admin ? 'ADMIN' : (prevM?.role || null);
+  const changedAuth = u.email.toLowerCase() !== b.email || prevRole !== b.role || (prevM?.company_id || null) !== (company?.id || null);
+  if (changedAuth && u.id !== req.user.id) revokeUserSessions(u.id);
+
+  audit(req, 'admin.updated_user', { companyId: company?.id || prevM?.company_id, entityType: 'user', entityId: u.id, metadata: { email: b.email, role: b.role } });
+  res.json({ ok: true, id: u.id, name: b.name, email: b.email, role: b.role, company_id: company?.id || null });
+});
+
 r.post('/users/:id/reset-password', async (req, res) => {
   const u = one('SELECT * FROM users WHERE id = ?', req.params.id);
   if (!u) throw notFound('Usuário não encontrado.');
