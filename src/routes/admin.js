@@ -98,12 +98,21 @@ r.patch('/companies/:id/status', (req, res) => {
 // ---------- Usuários ----------
 r.get('/users', (req, res) => {
   const qtext = `%${String(req.query.q || '').trim()}%`;
+  const role = String(req.query.role || '').trim().toUpperCase();
+  const where = ['(u.name LIKE ? OR u.email LIKE ?)'];
+  const params = [qtext, qtext];
+  if (role === 'ADMIN') where.push('u.is_platform_admin = 1');
+  else if (role === 'GESTOR' || role === 'TI') {
+    where.push('u.is_platform_admin = 0 AND m.role = ?');
+    params.push(role);
+  }
+  const cond = where.join(' AND ');
   res.json(page(
-    `SELECT COUNT(*) n FROM users u WHERE (u.name LIKE ? OR u.email LIKE ?)`,
+    `SELECT COUNT(*) n FROM users u LEFT JOIN company_memberships m ON m.user_id = u.id AND m.status = 'ACTIVE' WHERE ${cond}`,
     `SELECT u.id, u.name, u.email, u.account_status, u.is_platform_admin, u.mfa_enabled, u.created_at, m.role, c.id AS company_id, COALESCE(c.trade_name, c.legal_name) AS company_name
      FROM users u LEFT JOIN company_memberships m ON m.user_id = u.id AND m.status = 'ACTIVE' LEFT JOIN companies c ON c.id = m.company_id
-     WHERE (u.name LIKE ? OR u.email LIKE ?) ORDER BY u.created_at DESC`,
-    [qtext, qtext], req.query));
+     WHERE ${cond} ORDER BY u.created_at DESC`,
+    params, req.query));
 });
 
 r.patch('/users/:id/status', (req, res) => {

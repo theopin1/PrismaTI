@@ -1,36 +1,68 @@
-import { get, post, patch, del, $, $$, esc, pct, dt, dtt, mountHeader, toast, modal, confirmDialog, showFormErrors, clearFormErrors, fmtCnpj, ROLE_LABEL, STATUS_LABEL, STATUS_BADGE, JOB_LABEL, JOB_BADGE } from './api.js';
+import { get, post, patch, del, $, $$, esc, pct, dt, dtShort, dtt, initials, mountHeader, setSidebarActive, toast, modal, confirmDialog, showFormErrors, clearFormErrors, fmtCnpj, ROLE_LABEL, STATUS_LABEL, STATUS_BADGE, JOB_LABEL, JOB_BADGE } from './api.js';
 
 function debounce(fn, ms = 250) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-const me = await mountHeader('admin');
+const VALID_TABS = ['empresas', 'usuarios', 'questionario', 'avaliacoes', 'relatorios', 'auditoria', 'conta'];
+let tab = location.hash.slice(1) || 'empresas';
+if (!VALID_TABS.includes(tab)) tab = 'empresas';
+
+const me = await mountHeader(tab, {
+  onNavigate(k) {
+    tab = VALID_TABS.includes(k) ? k : 'empresas';
+    history.replaceState(null, '', `#${tab}`);
+    load();
+  },
+});
 if (!me.is_platform_admin) location.href = '/painel.html';
 const main = $('#main');
 
-const TABS = [['empresas', 'Empresas'], ['usuarios', 'Usuários'], ['questionario', 'Questionário'], ['avaliacoes', 'Avaliações'], ['relatorios', 'Relatórios de IA'], ['auditoria', 'Auditoria'], ['conta', 'Minha conta']];
 const ACC_BADGE = { ACTIVE: 'green', INACTIVE: 'red', PENDING: 'amber' };
 const ACC_LABEL = { ACTIVE: 'Ativo', INACTIVE: 'Inativo', PENDING: 'Pendente' };
 const INV_LABEL = { PENDING: 'Pendente', ACCEPTED: 'Aceito', REVOKED: 'Revogado', EXPIRED: 'Expirado' };
 const ASS_LABEL = { IN_PROGRESS: 'Em andamento', FINALIZED: 'Finalizada' };
-let tab = (location.hash.slice(1) || 'empresas');
-if (!TABS.some(([k]) => k === tab)) tab = 'empresas';
 
-function shell() {
-  main.innerHTML = `<div class="page-head"><div><span class="eyebrow">Administração da plataforma</span><h1>PrismaTI</h1>
-    <p>Cadastre empresas, envie convites, mantenha o questionário e acompanhe avaliações, relatórios e auditoria.</p></div></div>
-    <div class="tabs">${TABS.map(([k, t]) => `<button data-tab="${k}" class="${k === tab ? 'active' : ''}">${t}</button>`).join('')}</div>
+const IC = {
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  building: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 11h2a2 2 0 0 1 2 2v8M2 21h20M8 7h2M12 7h2M8 11h2M12 11h2"/></svg>',
+  users: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17.5" cy="9.5" r="2.5"/></svg>',
+  doc: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+  edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  power: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>',
+  key: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L21 8l-3-3"/></svg>',
+  eye: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  back: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+};
+
+const HEADERS = {
+  empresas: ['Painel administrativo', 'Gerenciamento de empresas', 'Gerencie os acessos e acompanhe as empresas cadastradas no PrismaTI.'],
+  usuarios: ['Painel administrativo', 'Gerenciamento de usuários', 'Gerencie os usuários cadastrados e seus acessos ao PrismaTI.'],
+  questionario: ['Painel administrativo', 'Gerenciamento de questionários', 'Gerencie os formulários de diagnóstico, suas versões e qual está sendo utilizada atualmente.'],
+  avaliacoes: ['Painel administrativo', 'Avaliações', 'Acompanhe o progresso, maturidade e relatórios das avaliações iniciadas pelas empresas.'],
+  relatorios: ['Painel administrativo', 'Relatórios de IA', 'Consulte os relatórios gerados, solicitações e consumo mensal de tokens.'],
+  auditoria: ['Painel administrativo', 'Auditoria', 'Rastreabilidade completa de acessos, alterações administrativas e exportações.'],
+  conta: ['Configurações', 'Minha conta', 'Gerencie a verificação em duas etapas (MFA) da sua conta administrativa.'],
+};
+
+function renderFrame(key, ctaHtml = '') {
+  const [eyebrow, title, sub] = HEADERS[key];
+  main.innerHTML = `<div class="page-head">
+      <div><span class="eyebrow">${esc(eyebrow)}</span><h1>${esc(title)}</h1><p>${esc(sub)}</p></div>
+      <div id="head-action">${ctaHtml}</div>
+    </div>
     <div id="pane"><p class="muted">Carregando...</p></div>`;
-  $$('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; history.replaceState(null, '', `#${tab}`); shell(); }));
-  load();
+  return $('#pane');
 }
 
 async function load() {
-  const pane = $('#pane');
-  try { await VIEWS[tab](pane); } catch (e) {
-    if (e.code === 'MFA_SETUP_REQUIRED') { tab = 'conta'; return shell(); }
-    pane.innerHTML = `<div class="alert show">${esc(e.message)}</div>`;
+  setSidebarActive(tab);
+  try {
+    await VIEWS[tab]();
+  } catch (e) {
+    if (e.code === 'MFA_SETUP_REQUIRED') { tab = 'conta'; history.replaceState(null, '', '#conta'); return load(); }
+    main.innerHTML = `<div class="alert show">${esc(e.message)}</div>`;
   }
 }
 
@@ -75,58 +107,85 @@ function openCompanyForm(c, after) {
   });
 }
 
-async function viewEmpresas(pane, p = 1, q = '') {
-  pane.innerHTML = `<section class="box"><div class="row"><input id="q" class="search-input" placeholder="Buscar por nome ou CNPJ" value="${esc(q)}" style="max-width:320px"><span class="spacer"></span><button class="btn-sm primary" id="new">Nova empresa</button></div>
-    <div id="tbl-area" style="margin-top:16px"><p class="muted">Carregando...</p></div></section>`;
+async function viewEmpresas(p = 1, q = '') {
+  const pane = renderFrame('empresas', `<button class="btn-cta" id="new">${IC.plus} Criar acesso</button>`);
+  pane.innerHTML = `<section class="box">
+    <div class="box-head">
+      <div><span class="box-kicker">Empresas cadastradas</span><h2>Acessos ativos</h2></div>
+      <span class="box-count" id="co-count">—</span>
+    </div>
+    <input id="q" class="search-input" placeholder="Buscar por nome ou CNPJ" value="${esc(q)}" style="max-width:360px">
+    <div id="tbl-area"><p class="muted">Carregando...</p></div>
+  </section>`;
+
   async function loadList(page = 1) {
     q = $('#q', pane).value;
     const data = await get(`/admin/companies?page=${page}&q=${encodeURIComponent(q)}`);
+    $('#co-count', pane).textContent = `${data.total} empresa(s)`;
     const area = $('#tbl-area', pane);
-    area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>CNPJ</th><th>Usuários</th><th>Última avaliação</th><th>Situação</th><th></th></tr></thead><tbody>
-      ${data.items.map((c) => `<tr><td><b>${esc(c.trade_name || c.legal_name)}</b><div class="small muted">${esc(c.legal_name)}</div></td><td class="small">${esc(fmtCnpj(c.cnpj))}</td><td>${c.active_users}</td>
-        <td class="small">${c.last_assessment_status ? ASS_LABEL[c.last_assessment_status] : '—'}</td><td><span class="badge ${ACC_BADGE[c.status]}">${ACC_LABEL[c.status]}</span></td>
-        <td><button class="btn-sm ghost" data-open="${c.id}">Abrir</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhuma empresa cadastrada.</td></tr>'}
+    area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome da empresa</th><th>CNPJ</th><th>Data de criação</th><th>Associados</th><th>Situação</th><th style="text-align:right">Ações</th></tr></thead><tbody>
+      ${data.items.map((c) => `<tr>
+        <td><div class="entity-cell"><div class="doc-sq">${IC.building}</div><div><b>${esc(c.trade_name || c.legal_name)}</b><div class="small muted">${esc(c.legal_name)}</div></div></div></td>
+        <td class="small muted">${esc(fmtCnpj(c.cnpj))}</td>
+        <td class="small muted">${dtShort(c.created_at)}</td>
+        <td><span class="assoc-cell">${IC.users} ${c.active_users}</span></td>
+        <td><span class="pill-dot ${ACC_BADGE[c.status]}">${ACC_LABEL[c.status]}</span></td>
+        <td><div class="row" style="justify-content:flex-end">
+          <button class="icon-btn" data-open="${c.id}" title="Abrir detalhes e convites">${IC.eye}</button>
+          <button class="icon-btn ${c.status === 'ACTIVE' ? 'danger' : ''}" data-co-toggle="${c.id}" data-to="${c.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}" title="${c.status === 'ACTIVE' ? 'Inativar empresa' : 'Reativar empresa'}">${IC.power}</button>
+        </div></td>
+      </tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhuma empresa cadastrada.</td></tr>'}
       </tbody></table></div>`;
     area.appendChild(pager(data, loadList));
     $$('[data-open]', area).forEach((b) => b.addEventListener('click', () => companyDetail(pane, b.dataset.open)));
+    $$('[data-co-toggle]', area).forEach((b) => b.addEventListener('click', async () => {
+      const off = b.dataset.to === 'INACTIVE';
+      if (off && !(await confirmDialog('Inativar empresa?', 'Os usuários perdem o acesso imediatamente. O histórico é preservado.', 'Inativar'))) return;
+      try { await patch(`/admin/companies/${b.dataset.coToggle}/status`, { status: b.dataset.to }); toast('Situação atualizada.'); loadList(page); } catch (e) { toast(e.message, true); }
+    }));
   }
+
   $('#q', pane).addEventListener('input', debounce(() => loadList(1)));
-  $('#new', pane).addEventListener('click', () => openCompanyForm(null, (c) => companyDetail(pane, c.id)));
+  $('#new').addEventListener('click', () => openCompanyForm(null, (c) => companyDetail(pane, c.id)));
   await loadList(p);
 }
 
 async function companyDetail(pane, id) {
   const c = await get(`/admin/companies/${id}`);
   const u = c.ai_usage;
-  pane.innerHTML = `<p><button class="btn-sm ghost" id="back"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Empresas</button></p>
-    <div class="grid2" style="margin-top:16px"><div class="stack">
-      <section class="box"><div class="dim-head"><div><h2>${esc(c.trade_name || c.legal_name)}</h2><p class="small muted">${esc(c.legal_name)}${c.cnpj ? ` · CNPJ ${esc(fmtCnpj(c.cnpj))}` : ''}</p></div>
-        <span class="badge ${ACC_BADGE[c.status]}">${ACC_LABEL[c.status]}</span></div>
-        <p class="small muted" style="margin-top:10px">${[c.sector, c.company_size, c.employee_count_range && `${c.employee_count_range} colaboradores`, c.contact_email].filter(Boolean).map(esc).join(' · ') || 'Sem dados complementares.'}</p>
-        <div class="row" style="margin-top:16px"><button class="btn-sm ghost" id="edit">Editar dados</button>
-          <button class="btn-sm ${c.status === 'ACTIVE' ? 'danger' : 'primary'}" id="toggle">${c.status === 'ACTIVE' ? 'Inativar empresa' : 'Reativar empresa'}</button></div></section>
-      <section class="box"><h3>Usuários vinculados</h3>
-        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Perfil</th><th>Conta</th><th></th></tr></thead><tbody>
-        ${c.users.map((x) => `<tr><td>${esc(x.name)}<div class="small muted">${esc(x.email)}</div></td><td class="small">${ROLE_LABEL[x.role]}${x.membership_status !== 'ACTIVE' ? ' (desvinculado)' : ''}</td>
-          <td><span class="badge ${ACC_BADGE[x.account_status]}">${ACC_LABEL[x.account_status]}</span></td>
-          <td>${x.membership_status === 'ACTIVE' ? `<button class="btn-sm ghost" data-unlink="${x.id}">Desvincular</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Nenhum usuário ainda. Envie um convite.</td></tr>'}
+  $('#head-action').innerHTML = `<button class="btn-sm ghost" id="back">${IC.back} Empresas</button>`;
+  pane.innerHTML = `<div class="grid2"><div class="stack">
+      <section class="box">
+        <div class="dim-head">
+          <div class="entity-cell"><div class="doc-sq" style="width:44px;height:44px">${IC.building}</div><div><h2>${esc(c.trade_name || c.legal_name)}</h2><p class="small muted">${esc(c.legal_name)}${c.cnpj ? ` · CNPJ ${esc(fmtCnpj(c.cnpj))}` : ''}</p></div></div>
+          <span class="pill-dot ${ACC_BADGE[c.status]}">${ACC_LABEL[c.status]}</span>
+        </div>
+        <p class="small muted" style="margin-top:12px">${[c.sector, c.company_size, c.employee_count_range && `${c.employee_count_range} colaboradores`, c.contact_email].filter(Boolean).map(esc).join(' · ') || 'Sem dados complementares.'}</p>
+        <div class="row" style="margin-top:16px"><button class="btn-sm soft" id="edit">${IC.edit} Editar dados</button>
+          <button class="btn-sm ${c.status === 'ACTIVE' ? 'danger' : 'primary'}" id="toggle">${c.status === 'ACTIVE' ? 'Inativar empresa' : 'Reativar empresa'}</button></div>
+      </section>
+      <section class="box"><span class="box-kicker">Equipe</span><h3>Usuários vinculados</h3>
+        <div class="tbl-wrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>Nome</th><th>Perfil</th><th>Conta</th><th></th></tr></thead><tbody>
+        ${c.users.map((x) => `<tr><td><div class="entity-cell"><div class="avatar-sq">${esc(initials(x.name))}</div><div><b>${esc(x.name)}</b><div class="small muted">${esc(x.email)}</div></div></div></td><td class="small">${ROLE_LABEL[x.role]}${x.membership_status !== 'ACTIVE' ? ' (desvinculado)' : ''}</td>
+          <td><span class="pill-dot ${ACC_BADGE[x.account_status]}">${ACC_LABEL[x.account_status]}</span></td>
+          <td>${x.membership_status === 'ACTIVE' ? `<button class="btn-sm ghost" data-unlink="${x.id}">Desvincular</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Nenhum usuário ainda. Envie um convite ao lado.</td></tr>'}
         </tbody></table></div></section>
-      <section class="box"><h3>Avaliações</h3>
-        ${c.assessments.length ? `<div class="tbl-wrap"><table class="tbl"><tbody>${c.assessments.map((a) => `<tr><td class="small">${dt(a.started_at)}</td><td>${ASS_LABEL[a.status]}</td><td>${pct(a.overall_maturity)}</td>
-          <td>${a.result_status ? `<span class="badge ${STATUS_BADGE[a.result_status]}">${STATUS_LABEL[a.result_status]}</span>` : ''}</td>
-          <td>${a.status === 'FINALIZED' ? `<a class="btn-sm ghost" href="/resultado.html?id=${a.id}">Resultado</a>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small muted">Nenhuma avaliação.</p>'}</section>
+      <section class="box"><span class="box-kicker">Histórico</span><h3>Avaliações</h3>
+        ${c.assessments.length ? `<div class="tbl-wrap" style="margin-top:10px"><table class="tbl"><tbody>${c.assessments.map((a) => `<tr><td class="small">${dtShort(a.started_at)}</td><td>${ASS_LABEL[a.status]}</td><td><b>${pct(a.overall_maturity)}</b></td>
+          <td>${a.result_status ? `<span class="pill-dot ${STATUS_BADGE[a.result_status]}">${STATUS_LABEL[a.result_status]}</span>` : ''}</td>
+          <td style="text-align:right">${a.status === 'FINALIZED' ? `<a class="btn-sm soft" href="/resultado.html?id=${a.id}">Resultado</a>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small muted">Nenhuma avaliação.</p>'}</section>
     </div><div class="stack">
-      <section class="box"><h3>Enviar convite</h3><p class="small muted">O acesso é somente por convite. O link vale por tempo limitado e só pode ser usado uma vez.</p>
+      <section class="box"><span class="box-kicker">Novo acesso</span><h3>Enviar convite</h3><p class="small muted">O acesso é somente por convite. O link vale por tempo limitado e só pode ser usado uma vez.</p>
         <form id="iform" style="margin-top:14px">${field('email', 'E-mail *', 'type="email" required')}${field('name', 'Nome')}
           ${select('role', 'Perfil', [['GESTOR', 'Gestor da Empresa (responde e finaliza)'], ['TI', 'Responsável de TI (somente consulta)']])}
           <div class="alert"></div><button class="btn-sm primary" style="margin-top:6px">Enviar convite</button></form><div id="link"></div></section>
-      <section class="box"><h3>Convites</h3>
+      <section class="box"><span class="box-kicker">Histórico de convites</span><h3>Convites</h3>
         ${c.invitations.length ? c.invitations.map((i) => `<div class="ev-item" style="margin-top:8px"><div><b>${esc(i.email)}</b><div class="small muted">${ROLE_LABEL[i.role]} · ${INV_LABEL[i.status] || i.status} · ${i.status === 'PENDING' ? `expira ${dtt(i.expires_at)}` : dt(i.created_at)}</div></div>
           ${i.status !== 'ACCEPTED' ? `<div class="row"><button class="btn-sm ghost" data-resend="${i.id}">Reenviar</button>${i.status === 'PENDING' ? `<button class="btn-sm danger" data-revoke="${i.id}">Revogar</button>` : ''}</div>` : ''}</div>`).join('') : '<p class="small muted">Nenhum convite enviado.</p>'}</section>
-      <section class="box"><h3>Uso de IA no mês</h3><p class="small muted">Relatórios: ${u.reports_this_month} de ${u.reports_limit} · Tokens: ${u.tokens_this_month.toLocaleString('pt-BR')} de ${u.tokens_limit.toLocaleString('pt-BR')} · Custo estimado US$ ${u.estimated_cost_usd.toFixed(2)}</p></section>
+      <section class="box"><span class="box-kicker">Limites</span><h3>Uso de IA no mês</h3><p class="small muted">Relatórios: ${u.reports_this_month} de ${u.reports_limit} · Tokens: ${u.tokens_this_month.toLocaleString('pt-BR')} de ${u.tokens_limit.toLocaleString('pt-BR')} · Custo estimado US$ ${u.estimated_cost_usd.toFixed(2)}</p></section>
     </div></div>`;
   const reload = () => companyDetail(pane, id);
-  $('#back').addEventListener('click', () => viewEmpresas(pane));
+  $('#back').addEventListener('click', () => viewEmpresas());
   $('#edit').addEventListener('click', () => openCompanyForm(c, reload));
   $('#toggle').addEventListener('click', async () => {
     const off = c.status === 'ACTIVE';
@@ -152,20 +211,51 @@ async function companyDetail(pane, id) {
 }
 
 // ---------- Usuários ----------
-async function viewUsuarios(pane, p = 1, q = '') {
-  pane.innerHTML = `<section class="box"><div class="row"><input id="q" class="search-input" placeholder="Buscar por nome ou e-mail" value="${esc(q)}" style="max-width:320px"><span class="spacer"></span><button class="btn-sm primary" id="new-user">Novo usuário</button></div>
-    <div id="tbl-area" style="margin-top:16px"><p class="muted">Carregando...</p></div></section>`;
+async function viewUsuarios(p = 1, q = '', role = '') {
+  const pane = renderFrame('usuarios', `<button class="btn-cta" id="new-user">${IC.plus} Criar usuário</button>`);
+  pane.innerHTML = `<section class="box">
+    <div class="box-head">
+      <div><span class="box-kicker">Usuários cadastrados</span><h2>Acessos à plataforma</h2></div>
+      <span class="box-count" id="u-count">—</span>
+    </div>
+    <div class="row" style="margin-bottom:18px">
+      <input id="q" class="search-input" placeholder="Buscar por nome ou e-mail" value="${esc(q)}" style="max-width:360px">
+      <select id="role-filter" class="search-select">
+        <option value="">Todos os perfis</option>
+        <option value="ADMIN" ${role === 'ADMIN' ? 'selected' : ''}>Administrador (ADM)</option>
+        <option value="GESTOR" ${role === 'GESTOR' ? 'selected' : ''}>Gestor da Empresa</option>
+        <option value="TI" ${role === 'TI' ? 'selected' : ''}>Responsável de TI</option>
+      </select>
+    </div>
+    <div id="tbl-area"><p class="muted">Carregando...</p></div>
+  </section>`;
+
   let curPage = p;
   async function loadUsers(page = 1) {
     curPage = page;
     q = $('#q', pane).value;
-    const data = await get(`/admin/users?page=${page}&q=${encodeURIComponent(q)}`);
+    role = $('#role-filter', pane).value;
+    const qs = `page=${page}&q=${encodeURIComponent(q)}${role ? `&role=${encodeURIComponent(role)}` : ''}`;
+    const data = await get(`/admin/users?${qs}`);
+    $('#u-count', pane).textContent = `${data.total} usuário(s)`;
     const area = $('#tbl-area', pane);
-    area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Usuário</th><th>Empresa</th><th>Perfil</th><th>MFA</th><th>Conta</th><th></th></tr></thead><tbody>
-      ${data.items.map((u) => `<tr><td>${esc(u.name)}<div class="small muted">${esc(u.email)}</div></td><td class="small">${esc(u.company_name || '—')}</td>
-        <td class="small">${u.is_platform_admin ? 'Administrador' : u.role ? ROLE_LABEL[u.role] : '—'}</td><td class="small">${u.mfa_enabled ? 'Ativa' : '—'}</td>
-        <td><span class="badge ${ACC_BADGE[u.account_status]}">${ACC_LABEL[u.account_status]}</span></td>
-        <td><div class="row">${u.account_status === 'ACTIVE' ? `<button class="btn-sm ghost" data-reset="${u.id}" data-email="${esc(u.email)}">Redefinir senha</button>` : ''}${u.id === me.id || u.account_status === 'PENDING' ? '' : `<button class="btn-sm ${u.account_status === 'ACTIVE' ? 'danger' : 'ghost'}" data-st="${u.id}" data-to="${u.account_status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}">${u.account_status === 'ACTIVE' ? 'Inativar' : 'Reativar'}</button>`}</div></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum usuário.</td></tr>'}
+    area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome do usuário</th><th>E-mail / Empresa</th><th>Data de criação</th><th>Tipo de acesso</th><th>MFA</th><th>Conta</th><th style="text-align:right">Ações</th></tr></thead><tbody>
+      ${data.items.map((u) => {
+        const badgeCls = u.is_platform_admin ? 'navy' : 'blue';
+        const roleTxt = u.is_platform_admin ? 'Administrador (ADM)' : (u.role ? ROLE_LABEL[u.role] : '—');
+        return `<tr>
+          <td><div class="entity-cell"><div class="avatar-sq">${esc(initials(u.name))}</div><b>${esc(u.name)}</b></div></td>
+          <td class="small"><div>${esc(u.email)}</div><div class="muted">${esc(u.company_name || 'PrismaTI (Plataforma)')}</div></td>
+          <td class="small muted">${dtShort(u.created_at)}</td>
+          <td><span class="pill-dot ${badgeCls}">${esc(roleTxt)}</span></td>
+          <td class="small muted">${u.mfa_enabled ? 'Ativa' : '—'}</td>
+          <td><span class="pill-dot ${ACC_BADGE[u.account_status]}">${ACC_LABEL[u.account_status]}</span></td>
+          <td><div class="row" style="justify-content:flex-end">
+            ${u.account_status === 'ACTIVE' ? `<button class="icon-btn" data-reset="${u.id}" data-email="${esc(u.email)}" title="Redefinir senha">${IC.key}</button>` : ''}
+            ${u.id === me.id || u.account_status === 'PENDING' ? '' : `<button class="icon-btn ${u.account_status === 'ACTIVE' ? 'danger' : ''}" data-st="${u.id}" data-to="${u.account_status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}" title="${u.account_status === 'ACTIVE' ? 'Inativar usuário' : 'Reativar usuário'}">${IC.power}</button>`}
+          </div></td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="7" class="muted">Nenhum usuário encontrado.</td></tr>'}
       </tbody></table></div>`;
     area.appendChild(pager(data, loadUsers));
     $$('[data-st]', area).forEach((b) => b.addEventListener('click', async () => {
@@ -183,8 +273,10 @@ async function viewUsuarios(pane, p = 1, q = '') {
       } catch (e) { toast(e.message, true); }
     }));
   }
+
   $('#q', pane).addEventListener('input', debounce(() => loadUsers(1)));
-  $('#new-user', pane).addEventListener('click', async () => {
+  $('#role-filter', pane).addEventListener('change', () => loadUsers(1));
+  $('#new-user').addEventListener('click', async () => {
     let activeCos = [];
     try {
       const cos = await get('/admin/companies?pageSize=100');
@@ -230,24 +322,48 @@ async function viewUsuarios(pane, p = 1, q = '') {
 }
 
 // ---------- Questionário ----------
-async function viewQuestionario(pane) {
+async function viewQuestionario() {
   const { items } = await get('/admin/instrument-versions');
-  const V_LABEL = { PUBLISHED: ['green', 'Publicada'], DRAFT: ['amber', 'Rascunho'], RETIRED: ['', 'Arquivada'] };
-  pane.innerHTML = `<section class="box"><h2>Versões do questionário</h2><p class="small muted">Versões publicadas ou já usadas não podem ser alteradas. Para mudar perguntas, crie uma nova versão a partir de uma existente, edite e publique. Avaliações antigas continuam ligadas à versão em que foram respondidas.</p>
-    <div class="tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>Versão</th><th>Situação</th><th>Criada em</th><th>Avaliações</th><th></th></tr></thead><tbody>
-    ${items.map((v) => `<tr><td><b>v${esc(v.version)}</b></td><td><span class="badge ${V_LABEL[v.status]?.[0] || ''}">${V_LABEL[v.status]?.[1] || v.status}</span></td><td class="small">${dt(v.created_at)}</td><td>${v.assessments_count}</td>
-      <td><div class="row"><button class="btn-sm ghost" data-view="${v.id}">${v.status === 'DRAFT' && !v.assessments_count ? 'Editar' : 'Ver'}</button><button class="btn-sm ghost" data-clone="${v.id}">Nova versão a partir desta</button>
-      ${v.status === 'DRAFT' ? `<button class="btn-sm primary" data-pub="${v.id}">Publicar</button>` : ''}</div></td></tr>`).join('')}
+  const firstId = items[0]?.id;
+  const pane = renderFrame('questionario', firstId ? `<button class="btn-cta" id="top-clone">${IC.plus} Criar questionário</button>` : '');
+  const V_LABEL = { PUBLISHED: ['blue', 'Versão em uso'], DRAFT: ['amber', 'Rascunho'], RETIRED: ['muted', 'Arquivada'] };
+
+  pane.innerHTML = `<section class="box">
+    <div class="box-head">
+      <div><span class="box-kicker">Histórico de versões</span><h2>Questionários cadastrados</h2></div>
+      <span class="box-count">${items.length} versão(ões)</span>
+    </div>
+    <p class="small muted" style="margin-bottom:16px">Versões publicadas ou já usadas não podem ser alteradas. Para mudar perguntas, crie um novo rascunho, edite e clique em <b>Usar essa versão</b>.</p>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome do questionário</th><th>Data de criação</th><th>Versão</th><th>Avaliações</th><th style="text-align:right">Ações</th></tr></thead><tbody>
+    ${items.map((v) => {
+      const activeRow = v.status === 'PUBLISHED';
+      const [cls, lbl] = V_LABEL[v.status] || ['muted', v.status];
+      return `<tr class="${activeRow ? 'row-hl' : ''}">
+        <td><div class="entity-cell"><div class="doc-sq">${IC.doc}</div><b>Diagnóstico de Maturidade de TI — v${esc(v.version)}</b></div></td>
+        <td class="small muted">${dtShort(v.created_at)}</td>
+        <td><div class="row" style="gap:8px"><b>v${esc(v.version)}</b><span class="pill-dot ${cls}">${lbl}</span></div></td>
+        <td class="small muted">${v.assessments_count}</td>
+        <td><div class="row" style="justify-content:flex-end">
+          <button class="icon-btn" data-view="${v.id}" title="${v.status === 'DRAFT' && !v.assessments_count ? 'Editar perguntas' : 'Visualizar perguntas'}">${v.status === 'DRAFT' && !v.assessments_count ? IC.edit : IC.eye}</button>
+          <button class="btn-sm ghost" data-clone="${v.id}">Duplicar</button>
+          ${v.status === 'DRAFT' ? `<button class="btn-sm soft" data-pub="${v.id}">Usar essa versão</button>` : (activeRow ? '<span class="btn-sm ghost" style="pointer-events:none;opacity:.75">Em uso</span>' : '')}
+        </div></td>
+      </tr>`;
+    }).join('')}
     </tbody></table></div></section><div id="vdetail"></div>`;
-  $$('[data-clone]', pane).forEach((b) => b.addEventListener('click', () => {
-    const m = modal(`<h3>Nova versão</h3><form id="vf">${field('version', 'Número da versão *', 'placeholder="1.1" required', 'Formato 1.1, 2.0...')}<div class="alert"></div>
+
+  const openClone = (sourceId) => {
+    const m = modal(`<h3>Nova versão do questionário</h3><form id="vf">${field('version', 'Número da versão *', 'placeholder="1.1" required', 'Formato 1.1, 2.0...')}<div class="alert"></div>
       <div class="row" style="justify-content:flex-end"><button type="button" class="btn-sm ghost" data-close>Cancelar</button><button class="btn-sm primary">Criar rascunho</button></div></form>`);
     const f = $('#vf', m.el);
-    f.addEventListener('submit', async (e) => { e.preventDefault(); try { const r = await post(`/admin/instrument-versions/${b.dataset.clone}/clone`, formData(f)); m.close(); await viewQuestionario(pane); versionDetail(r.id); } catch (err) { showFormErrors(f, err); } });
-  }));
+    f.addEventListener('submit', async (e) => { e.preventDefault(); try { const r = await post(`/admin/instrument-versions/${sourceId}/clone`, formData(f)); m.close(); await viewQuestionario(); versionDetail(r.id); } catch (err) { showFormErrors(f, err); } });
+  };
+
+  $('#top-clone')?.addEventListener('click', () => openClone(firstId));
+  $$('[data-clone]', pane).forEach((b) => b.addEventListener('click', () => openClone(b.dataset.clone)));
   $$('[data-pub]', pane).forEach((b) => b.addEventListener('click', async () => {
-    if (!(await confirmDialog('Publicar versão?', 'Novas avaliações passam a usar esta versão. A versão publicada anterior é arquivada e as avaliações existentes não mudam.', 'Publicar'))) return;
-    try { await post(`/admin/instrument-versions/${b.dataset.pub}/publish`); toast('Versão publicada.'); viewQuestionario(pane); } catch (e) { toast(e.message, true); }
+    if (!(await confirmDialog('Usar esta versão?', 'Novas avaliações passam a usar esta versão. A versão publicada anterior é arquivada e as avaliações existentes não mudam.', 'Publicar'))) return;
+    try { await post(`/admin/instrument-versions/${b.dataset.pub}/publish`); toast('Versão publicada.'); viewQuestionario(); } catch (e) { toast(e.message, true); }
   }));
   $$('[data-view]', pane).forEach((b) => b.addEventListener('click', () => versionDetail(b.dataset.view)));
 }
@@ -258,7 +374,7 @@ async function versionDetail(vid) {
   const box = $('#vdetail');
   const ta = (name, label, val) => `<div class="field"><label>${label}</label><textarea name="${name}" rows="2" ${editable ? '' : 'readonly'}>${esc(val || '')}</textarea></div>`;
   box.innerHTML = `<section class="box" style="margin-top:22px">
-    <div class="dim-head"><div><h2>Versão ${esc(v.version)} · ${v.questions.length} perguntas em ${v.dimensions.length} dimensões</h2>
+    <div class="dim-head"><div><span class="box-kicker">Estrutura do instrumento</span><h2>Versão ${esc(v.version)} · ${v.questions.length} perguntas em ${v.dimensions.length} dimensões</h2>
       <p class="small muted">${editable ? 'Rascunho: você pode criar dimensões, adicionar ou excluir perguntas e editar alternativas e referências.' : 'Somente leitura.'}</p></div>
       ${editable ? '<div class="row"><button class="btn-sm ghost" id="new-dim">Nova dimensão</button><button class="btn-sm primary" id="new-q">Nova pergunta</button></div>' : ''}</div>
     ${v.dimensions.map((d) => `<div class="row" style="margin-top:24px"><h3 style="margin:0">${esc(d.code)} · ${esc(d.name)}</h3>${editable ? `<button class="btn-sm ghost" data-dim="${d.id}">Editar dimensão</button>` : ''}</div>
@@ -328,38 +444,48 @@ async function versionDetail(vid) {
 }
 
 // ---------- Avaliações / Relatórios ----------
-async function viewAvaliacoes(pane, p = 1) {
+async function viewAvaliacoes(p = 1) {
+  const pane = renderFrame('avaliacoes');
   const data = await get(`/admin/assessments?page=${p}`);
-  pane.innerHTML = `<section class="box"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Início</th><th>Situação</th><th>Respondidas</th><th>Maturidade</th><th>Relatórios</th><th></th></tr></thead><tbody>
-    ${data.items.map((a) => `<tr><td><b>${esc(a.company_name)}</b><div class="small muted">Instrumento v${esc(a.version)}</div></td><td class="small">${dt(a.started_at)}</td><td>${ASS_LABEL[a.status]}</td><td>${a.answered}</td>
-      <td>${pct(a.overall_maturity)}${a.result_status ? ` <span class="badge ${STATUS_BADGE[a.result_status]}">${STATUS_LABEL[a.result_status]}</span>` : ''}</td><td>${a.reports}</td>
-      <td>${a.status === 'FINALIZED' ? `<a class="btn-sm ghost" href="/resultado.html?id=${a.id}">Resultado</a>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhuma avaliação.</td></tr>'}
+  pane.innerHTML = `<section class="box">
+    <div class="box-head"><div><span class="box-kicker">Diagnósticos</span><h2>Todas as avaliações</h2></div><span class="box-count">${data.total} avaliação(ões)</span></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Início</th><th>Situação</th><th>Respondidas</th><th>Maturidade</th><th>Relatórios</th><th style="text-align:right">Ações</th></tr></thead><tbody>
+    ${data.items.map((a) => `<tr><td><b>${esc(a.company_name)}</b><div class="small muted">Instrumento v${esc(a.version)}</div></td><td class="small muted">${dtShort(a.started_at)}</td><td><span class="pill-dot ${a.status === 'FINALIZED' ? 'green' : 'blue'}">${ASS_LABEL[a.status]}</span></td><td>${a.answered}</td>
+      <td>${pct(a.overall_maturity)}${a.result_status ? ` <span class="pill-dot ${STATUS_BADGE[a.result_status]}" style="margin-left:6px">${STATUS_LABEL[a.result_status]}</span>` : ''}</td><td>${a.reports}</td>
+      <td style="text-align:right">${a.status === 'FINALIZED' ? `<a class="btn-sm soft" href="/resultado.html?id=${a.id}">Resultado</a>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhuma avaliação.</td></tr>'}
     </tbody></table></div></section>`;
-  $('.box', pane).appendChild(pager(data, (np) => viewAvaliacoes(pane, np)));
+  $('.box', pane).appendChild(pager(data, (np) => viewAvaliacoes(np)));
 }
 
-async function viewRelatorios(pane, p = 1) {
+async function viewRelatorios(p = 1) {
+  const pane = renderFrame('relatorios');
   const [jobs, usage] = await Promise.all([get(`/admin/report-jobs?page=${p}`), get('/admin/ai-usage?pageSize=10')]);
   const m = usage.month;
-  pane.innerHTML = `<div class="grid3">
-      <section class="box"><p class="small muted">Provedor</p><div class="stat" style="font-size:22px">${usage.provider === 'anthropic' ? 'Anthropic' : 'Gerador local'}</div><p class="small muted">${esc(usage.model)}</p></section>
-      <section class="box"><p class="small muted">Tokens no mês</p><div class="stat">${(m.input_tokens + m.output_tokens).toLocaleString('pt-BR')}</div><p class="small muted">${m.calls} chamada(s) · limite global ${usage.limits.tokens_global.toLocaleString('pt-BR')}</p></section>
-      <section class="box"><p class="small muted">Custo estimado no mês</p><div class="stat">US$ ${m.cost.toFixed(2)}</div><p class="small muted">Limite por empresa: ${usage.limits.reports_per_company} relatórios</p></section></div>
-    <section class="box" style="margin-top:20px"><h3>Solicitações de relatório</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Solicitado</th><th>Situação</th><th>Tentativas</th><th>Erro</th><th></th></tr></thead><tbody>
-    ${jobs.items.map((j) => `<tr><td>${esc(j.company_name)}</td><td class="small">${dtt(j.requested_at)}</td><td><span class="badge ${JOB_BADGE[j.status]}">${JOB_LABEL[j.status]}</span></td><td>${j.attempt_count}</td><td class="small muted">${esc(j.error_code || '')}</td>
-      <td>${j.report_id ? `<div class="row"><a class="btn-sm ghost" href="/api/v1/reports/${j.report_id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF (v${j.report_version})</a><a class="btn-sm ghost" href="/api/v1/reports/${j.report_id}/pdf">Baixar</a></div>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhuma solicitação.</td></tr>'}
+  pane.innerHTML = `<div class="kpi-grid">
+      <article class="kpi-card"><div class="kpi-body"><small>Provedor de IA</small><div class="kpi-num" style="font-size:24px">${usage.provider === 'anthropic' ? 'Anthropic' : 'Gerador local'}</div><div class="kpi-sub">${esc(usage.model)}</div></div></article>
+      <article class="kpi-card featured"><div class="kpi-body"><small>Tokens no mês</small><div class="kpi-num">${(m.input_tokens + m.output_tokens).toLocaleString('pt-BR')}</div><div class="kpi-sub">${m.calls} chamada(s) · limite ${usage.limits.tokens_global.toLocaleString('pt-BR')}</div></div></article>
+      <article class="kpi-card"><div class="kpi-body"><small>Custo estimado no mês</small><div class="kpi-num">US$ ${m.cost.toFixed(2)}</div><div class="kpi-sub">Limite por empresa: ${usage.limits.reports_per_company} relatórios</div></div></article>
+    </div>
+    <section class="box"><div class="box-head"><div><span class="box-kicker">Documentos</span><h2>Solicitações de relatório</h2></div><span class="box-count">${jobs.total} registro(s)</span></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Solicitado</th><th>Situação</th><th>Tentativas</th><th>Erro</th><th style="text-align:right">PDF</th></tr></thead><tbody>
+    ${jobs.items.map((j) => `<tr><td><b>${esc(j.company_name)}</b></td><td class="small muted">${dtt(j.requested_at)}</td><td><span class="pill-dot ${JOB_BADGE[j.status]}">${JOB_LABEL[j.status]}</span></td><td>${j.attempt_count}</td><td class="small muted">${esc(j.error_code || '—')}</td>
+      <td>${j.report_id ? `<div class="row" style="justify-content:flex-end"><a class="btn-sm ghost" href="/api/v1/reports/${j.report_id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF (v${j.report_version})</a><a class="btn-sm soft" href="/api/v1/reports/${j.report_id}/pdf">Baixar</a></div>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhuma solicitação.</td></tr>'}
     </tbody></table></div></section>
-    <section class="box" style="margin-top:20px"><h3>Consumo recente</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Empresa</th><th>Modelo</th><th>Entrada</th><th>Saída</th><th>Custo</th><th>Situação</th></tr></thead><tbody>
-    ${usage.items.map((u) => `<tr><td class="small">${dtt(u.created_at)}</td><td>${esc(u.company_name)}</td><td class="small">${esc(u.model)}</td><td>${u.input_tokens}</td><td>${u.output_tokens}</td><td>US$ ${u.estimated_cost.toFixed(4)}</td><td class="small">${esc(u.status)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sem consumo registrado.</td></tr>'}
+    <section class="box" style="margin-top:20px"><div class="box-head"><div><span class="box-kicker">Histórico técnico</span><h2>Consumo recente</h2></div></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Empresa</th><th>Modelo</th><th>Entrada</th><th>Saída</th><th>Custo</th><th>Situação</th></tr></thead><tbody>
+    ${usage.items.map((u) => `<tr><td class="small muted">${dtt(u.created_at)}</td><td>${esc(u.company_name)}</td><td class="small">${esc(u.model)}</td><td>${u.input_tokens}</td><td>${u.output_tokens}</td><td>US$ ${u.estimated_cost.toFixed(4)}</td><td class="small">${esc(u.status)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sem consumo registrado.</td></tr>'}
     </tbody></table></div></section>`;
-  $$('.box', pane)[3].appendChild(pager(jobs, (np) => viewRelatorios(pane, np)));
+  $$('.box', pane)[0].appendChild(pager(jobs, (np) => viewRelatorios(np)));
 }
 
-async function viewAuditoria(pane, p = 1, action = '', companyId = '') {
+async function viewAuditoria(p = 1, action = '', companyId = '') {
+  const pane = renderFrame('auditoria');
   const cos = await get('/admin/companies?pageSize=100');
-  pane.innerHTML = `<section class="box"><div class="row"><input id="act" class="search-input" placeholder="Filtrar por ação (ex.: auth, assessment, report)" value="${esc(action)}" style="max-width:340px">
+  pane.innerHTML = `<section class="box">
+    <div class="box-head"><div><span class="box-kicker">Segurança e rastreabilidade</span><h2>Logs de auditoria</h2></div></div>
+    <div class="row" style="margin-bottom:16px"><input id="act" class="search-input" placeholder="Filtrar por ação (ex.: auth, assessment, report)" value="${esc(action)}" style="max-width:340px">
     <select id="comp" class="search-select"><option value="">Todas as empresas</option>${cos.items.map((c) => `<option value="${esc(c.id)}" ${c.id === companyId ? 'selected' : ''}>${esc(c.trade_name || c.legal_name)}</option>`).join('')}</select></div>
-    <div id="tbl-area" style="margin-top:16px"><p class="muted">Carregando...</p></div></section>`;
+    <div id="tbl-area"><p class="muted">Carregando...</p></div></section>`;
   async function loadLogs(page = 1) {
     action = $('#act', pane).value.trim();
     companyId = $('#comp', pane).value;
@@ -367,7 +493,7 @@ async function viewAuditoria(pane, p = 1, action = '', companyId = '') {
     const data = await get(`/admin/audit-logs?${qs}`);
     const area = $('#tbl-area', pane);
     area.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Ação</th><th>Usuário</th><th>Entidade</th><th>Detalhes</th><th>IP</th></tr></thead><tbody>
-      ${data.items.map((l) => `<tr><td class="small">${dtt(l.created_at)}</td><td><span class="code">${esc(l.action)}</span></td><td class="small">${esc(l.actor_email || '—')}</td>
+      ${data.items.map((l) => `<tr><td class="small muted">${dtt(l.created_at)}</td><td><span class="code">${esc(l.action)}</span></td><td class="small">${esc(l.actor_email || '—')}</td>
         <td class="small muted">${esc(l.entity_type || '')}</td><td class="small muted" style="max-width:280px">${esc(l.metadata || '')}</td><td class="small muted">${esc(l.ip || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum registro.</td></tr>'}
       </tbody></table></div>`;
     area.appendChild(pager(data, loadLogs));
@@ -378,30 +504,42 @@ async function viewAuditoria(pane, p = 1, action = '', companyId = '') {
 }
 
 // ---------- Conta / MFA ----------
-async function viewConta(pane) {
+async function viewConta() {
+  const pane = renderFrame('conta');
   const cur = await get('/auth/me');
-  pane.innerHTML = `<section class="box" style="max-width:640px"><h2>Verificação em duas etapas</h2>
-    ${cur.mfa_setup_required ? '<div class="alert show">Ative a verificação em duas etapas para usar a administração.</div>' : ''}
-    <p class="muted" style="margin-top:10px">${cur.mfa_enabled ? 'Ativa. Ao entrar, será pedido o código de 6 dígitos do aplicativo autenticador.' : 'Use um aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password...) para gerar códigos de acesso.'}</p>
-    ${cur.mfa_enabled ? `<form id="mf-off" style="margin-top:16px">${field('code', 'Para desativar, digite o código de 6 dígitos do autenticador', 'inputmode="numeric" maxlength="6" required autocomplete="one-time-code"')}<div class="alert"></div><button class="btn-sm danger">Desativar verificação em duas etapas</button></form>`
-      : `<button class="btn-sm primary" id="setup" style="margin-top:16px">Configurar agora</button><div id="mfa"></div>`}</section>`;
+  pane.innerHTML = `<section class="profile-card" style="max-width:680px">
+    <div class="profile-head">
+      <div class="profile-avatar">${esc(initials(cur.name))}</div>
+      <div><h2 style="font-size:22px">${esc(cur.name)}</h2><p class="small muted">${esc(cur.email)} · Administrador da plataforma</p></div>
+    </div>
+    <div style="margin-top:22px">
+      <span class="box-kicker">Autenticação</span>
+      <h3>Verificação em duas etapas (MFA)</h3>
+      ${cur.mfa_setup_required ? '<div class="alert show">Ative a verificação em duas etapas para usar a administração.</div>' : ''}
+      <p class="small muted" style="margin-top:8px">${cur.mfa_enabled ? 'Ativa. Ao entrar, será pedido o código de 6 dígitos do aplicativo autenticador.' : 'Use um aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password...) para gerar códigos de acesso.'}</p>
+      ${cur.mfa_enabled ? `<form id="mf-off" style="margin-top:16px">${field('code', 'Para desativar, digite o código de 6 dígitos do autenticador', 'inputmode="numeric" maxlength="6" required autocomplete="one-time-code"')}<div class="alert"></div><button class="btn-sm danger">Desativar verificação em duas etapas</button></form>`
+        : `<button class="btn-cta" id="setup" style="margin-top:16px">Configurar agora</button><div id="mfa"></div>`}
+    </div></section>`;
   $('#mf-off')?.addEventListener('submit', async (e) => {
     e.preventDefault(); clearFormErrors($('#mf-off'));
-    try { await post('/auth/mfa/disable', formData($('#mf-off'))); toast('Verificação em duas etapas desativada.'); viewConta(pane); } catch (err) { showFormErrors($('#mf-off'), err); }
+    try { await post('/auth/mfa/disable', formData($('#mf-off'))); toast('Verificação em duas etapas desativada.'); viewConta(); } catch (err) { showFormErrors($('#mf-off'), err); }
   });
   $('#setup')?.addEventListener('click', async () => {
     try {
       const s = await post('/auth/mfa/setup');
       $('#mfa').innerHTML = `<p class="small" style="margin-top:16px">1. Escaneie o QR Code abaixo no aplicativo autenticador ou adicione a chave manual:</p>
-        ${s.qr_svg ? `<div style="margin:14px 0;display:inline-block;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fff">${s.qr_svg}</div>` : ''}
+        ${s.qr_svg ? `<div style="margin:14px 0;display:inline-block;padding:12px;border:1px solid #dbe5f2;border-radius:14px;background:#fff">${s.qr_svg}</div>` : ''}
         <p><span class="code">${esc(s.secret)}</span></p><p class="small muted" style="word-break:break-all">${esc(s.otpauth_url)}</p>
         <form id="mf" style="margin-top:12px">${field('code', '2. Digite o código de 6 dígitos', 'inputmode="numeric" maxlength="6" required autocomplete="one-time-code"')}<div class="alert"></div><button class="btn-sm primary">Ativar</button></form>`;
       const f = $('#mf');
-      f.addEventListener('submit', async (e) => { e.preventDefault(); clearFormErrors(f); try { await post('/auth/mfa/enable', formData(f)); toast('Verificação em duas etapas ativada.'); tab = 'empresas'; shell(); } catch (err) { showFormErrors(f, err); } });
+      f.addEventListener('submit', async (e) => { e.preventDefault(); clearFormErrors(f); try { await post('/auth/mfa/enable', formData(f)); toast('Verificação em duas etapas ativada.'); tab = 'empresas'; load(); } catch (err) { showFormErrors(f, err); } });
     } catch (e) { toast(e.message, true); }
   });
 }
 
-const VIEWS = { empresas: viewEmpresas, usuarios: viewUsuarios, questionario: viewQuestionario, avaliacoes: viewAvaliacoes, relatorios: viewRelatorios, auditoria: viewAuditoria, conta: viewConta };
-if (me.mfa_setup_required) tab = 'conta';
-shell();
+const VIEWS = { empresas: () => viewEmpresas(), usuarios: () => viewUsuarios(), questionario: () => viewQuestionario(), avaliacoes: () => viewAvaliacoes(), relatorios: () => viewRelatorios(), auditoria: () => viewAuditoria(), conta: () => viewConta() };
+window.addEventListener('hashchange', () => {
+  const next = location.hash.slice(1) || 'empresas';
+  if (VALID_TABS.includes(next) && next !== tab) { tab = next; load(); }
+});
+load();

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 264 360" fill="none">
+  <defs>
+    <linearGradient id="lpL" x1="18" y1="18" x2="132" y2="270" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f3f8ff"/>
+      <stop offset="0.35" stop-color="#98c6ff"/>
+      <stop offset="1" stop-color="#1769ff"/>
+    </linearGradient>
+    <linearGradient id="lpR" x1="136" y1="0" x2="250" y2="310" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2952a3"/>
+      <stop offset="0.55" stop-color="#112c66"/>
+      <stop offset="1" stop-color="#071b45"/>
+    </linearGradient>
+    <linearGradient id="lpB" x1="12" y1="312" x2="256" y2="312" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#609dff"/>
+      <stop offset="0.5" stop-color="#8ec1ff"/>
+      <stop offset="1" stop-color="#4e89ee"/>
+    </linearGradient>
+    <linearGradient id="lpH" x1="136" y1="0" x2="108" y2="268" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.06"/>
+    </linearGradient>
+  </defs>
+  <polygon points="136,0 0,312 132,265" fill="url(#lpL)"/>
+  <polygon points="136,0 132,265 264,315" fill="url(#lpR)"/>
+  <polygon points="0,312 132,265 264,315 131,360" fill="url(#lpB)"/>
+  <polygon points="136,0 82,250 132,265" fill="url(#lpH)"/>
+  <line x1="136" y1="0" x2="132" y2="265" stroke="rgba(255,255,255,0.55)" stroke-width="1.2"/>
+</svg>

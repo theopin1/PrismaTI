@@ -9,6 +9,14 @@ if (token) history.replaceState(null, '', location.pathname);
 function busy(on) { const b = $('button[type=submit]', form); b.disabled = on; b.style.opacity = on ? 0.6 : 1; }
 function local(errFields) { return Object.assign(new Error('Alguns campos precisam de correção.'), { fields: errFields }); }
 
+document.querySelectorAll('[data-toggle-pw]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const inp = document.getElementById(btn.dataset.togglePw);
+    if (!inp) return;
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+});
+
 if (page === 'entrar') {
   const msg = new URLSearchParams(location.search).get('msg');
   if (msg) { $('#ok').textContent = msg; $('#ok').classList.add('show'); }

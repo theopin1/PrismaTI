@@ -1,6 +1,6 @@
 import { get, post, $, esc, pct, dt, dtt, mountHeader, toast, STATUS_LABEL, STATUS_BADGE, JOB_LABEL, JOB_BADGE, LEVEL_COLOR } from './api.js';
 
-const me = await mountHeader(null);
+const me = await mountHeader('auto');
 const main = $('#main');
 const params = new URLSearchParams(location.search);
 const id = params.get('id');
@@ -12,23 +12,23 @@ const ANSWER_LABEL = { SCORE: null, NA: 'Não se aplica', NS: 'Não sei informar
 const EV_LABEL = { ENVIADA: 'Evidência enviada', INDICADA: 'Evidência indicada', NAO_INFORMADA: 'Sem evidência' };
 
 function gauge(p) {
-  const r = 70, c = 2 * Math.PI * r, v = p ?? 0;
-  return `<svg width="170" height="170" viewBox="0 0 170 170" role="img" aria-label="Maturidade geral ${pct(p)}">
-    <circle cx="85" cy="85" r="${r}" fill="none" stroke="#e8eef9" stroke-width="16"/>
-    <circle cx="85" cy="85" r="${r}" fill="none" stroke="${LEVEL_COLOR(p)}" stroke-width="16" stroke-linecap="round"
-      stroke-dasharray="${(c * v) / 100} ${c}" transform="rotate(-90 85 85)"/>
+  const r = 68, c = 2 * Math.PI * r, v = p ?? 0;
+  return `<svg width="164" height="164" viewBox="0 0 164 164" role="img" aria-label="Maturidade geral ${pct(p)}">
+    <circle cx="82" cy="82" r="${r}" fill="none" stroke="#eef5ff" stroke-width="15"/>
+    <circle cx="82" cy="82" r="${r}" fill="none" stroke="${LEVEL_COLOR(p)}" stroke-width="15" stroke-linecap="round"
+      stroke-dasharray="${(c * v) / 100} ${c}" transform="rotate(-90 82 82)"/>
   </svg>`;
 }
 
 function radar(dims) {
   const n = dims.length, cx = 160, cy = 150, R = 110;
   const pt = (i, f) => { const a = -Math.PI / 2 + (2 * Math.PI * i) / n; return [cx + Math.cos(a) * R * f, cy + Math.sin(a) * R * f]; };
-  const rings = [0.25, 0.5, 0.75, 1].map((f) => `<polygon points="${dims.map((_, i) => pt(i, f).join(',')).join(' ')}" fill="none" stroke="#e3e9f5"/>`).join('');
-  const axes = dims.map((_, i) => `<line x1="${cx}" y1="${cy}" x2="${pt(i, 1)[0]}" y2="${pt(i, 1)[1]}" stroke="#e3e9f5"/>`).join('');
+  const rings = [0.25, 0.5, 0.75, 1].map((f) => `<polygon points="${dims.map((_, i) => pt(i, f).join(',')).join(' ')}" fill="none" stroke="#dbe5f2"/>`).join('');
+  const axes = dims.map((_, i) => `<line x1="${cx}" y1="${cy}" x2="${pt(i, 1)[0]}" y2="${pt(i, 1)[1]}" stroke="#dbe5f2"/>`).join('');
   const shape = dims.map((d, i) => pt(i, (d.maturity_percentage ?? 0) / 100).join(',')).join(' ');
   const labels = dims.map((d, i) => { const [x, y] = pt(i, 1.2); return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle">${esc(d.code)}</text>`; }).join('');
   return `<svg class="radar" viewBox="0 0 320 300" width="100%" style="max-width:380px" role="img" aria-label="Radar de maturidade por dimensão">${rings}${axes}
-    <polygon points="${shape}" fill="rgba(31,102,255,.18)" stroke="#1f66ff" stroke-width="2"/>${labels}</svg>`;
+    <polygon points="${shape}" fill="rgba(23,105,255,.18)" stroke="#0b4ee8" stroke-width="2"/>${labels}</svg>`;
 }
 
 function resultsHtml(res, assessment) {
@@ -39,16 +39,16 @@ function resultsHtml(res, assessment) {
     <div class="page-head">
       <div><span class="eyebrow">Resultado do diagnóstico</span><h1>Maturidade em TI</h1>
       <p>Avaliação finalizada em ${dt(assessment.finalized_at)} · Instrumento v${esc(res.instrument_version)} · Cálculo ${esc(res.calculation_version)}</p></div>
-      <div class="res-actions"><a class="btn-sm ghost" href="${me.is_platform_admin ? '/admin.html' : '/painel.html'}">Voltar</a>${res.questions ? `<a class="btn-sm ghost" href="/avaliacao.html?id=${assessment.id}">Ver respostas</a>` : ''}</div>
+      <div class="res-actions"><a class="btn-sm ghost" href="${me.is_platform_admin ? '/admin.html#avaliacoes' : '/painel.html'}">Voltar</a>${res.questions ? `<a class="btn-sm soft" href="/avaliacao.html?id=${assessment.id}">Ver respostas</a>` : ''}</div>
     </div>
     ${params.get('novo') ? '<div class="ok-box show">Avaliação finalizada. Os resultados abaixo foram calculados pelo sistema e não mudam mais.</div>' : ''}
-    <div class="res-hero">
+    <div class="res-hero" style="margin-top:0">
       <section class="box gauge-wrap">
-        <div style="position:relative;width:170px;height:170px">${gauge(res.overall_maturity)}
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="big-pct" style="font-size:34px;color:${LEVEL_COLOR(res.overall_maturity)}">${pct(res.overall_maturity)}</span></div></div>
-        <div><p class="muted small">Maturidade geral</p><h2 style="font-size:26px;margin-top:4px">Nível ${esc(res.overall_classification || 'indisponível')}</h2>
+        <div style="position:relative;width:164px;height:164px">${gauge(res.overall_maturity)}
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="big-pct" style="font-size:32px;color:${LEVEL_COLOR(res.overall_maturity)}">${pct(res.overall_maturity)}</span></div></div>
+        <div><span class="box-kicker">Maturidade geral</span><h2 style="font-size:24px;margin-top:2px">Nível ${esc(res.overall_classification || 'indisponível')}</h2>
           <span class="level-pill" style="background:${LEVEL_COLOR(res.overall_maturity)}22;color:${LEVEL_COLOR(res.overall_maturity)}">${esc(res.overall_classification || 'Indisponível')}</span>
-          <p style="margin-top:14px"><span class="badge ${STATUS_BADGE[res.result_status]}">${esc(STATUS_LABEL[res.result_status])}</span></p></div>
+          <p style="margin-top:14px"><span class="pill-dot ${STATUS_BADGE[res.result_status]}">${esc(STATUS_LABEL[res.result_status])}</span></p></div>
       </section>
       <section class="box kpis">
         <div class="kpi"><small>Cobertura</small><strong>${pct(res.overall_coverage)}</strong></div>
@@ -97,24 +97,24 @@ async function loadReports() {
   const lastFailed = jobs[0]?.status === 'FAILED' ? jobs[0] : null;
   box.innerHTML = `<section class="box" style="margin-top:20px">
     <div class="dim-head">
-      <div><h3>Relatório de diagnóstico e plano de melhorias</h3>
+      <div><span class="box-kicker">Documentos gerados</span><h3>Relatório de diagnóstico e plano de melhorias</h3>
       <p class="small muted">${reports.length ? `Última versão disponível: v${reports[0].report_version} · gerada em ${dtt(reports[0].generated_at)}` : 'Nenhum relatório em PDF gerado ainda para esta avaliação.'}</p></div>
       <div class="row">
         ${reports.length ? (canPdf ? `<a class="btn-sm ghost" href="/api/v1/reports/${reports[0].id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF (v${reports[0].report_version})</a><a class="btn-sm primary" href="/api/v1/reports/${reports[0].id}/pdf">Baixar PDF (v${reports[0].report_version})</a>` : '<span class="small muted">Download em PDF disponível para o Gestor</span>') : ''}
-        ${isGestor ? `<button class="btn-sm ${reports.length ? 'ghost' : 'primary'}" id="req" ${active ? 'disabled' : ''}>${reports.length ? 'Gerar nova versão' : 'Gerar relatório PDF'}</button>` : ''}
+        ${isGestor ? `<button class="${reports.length ? 'btn-sm ghost' : 'btn-cta'}" id="req" ${active ? 'disabled' : ''}>${reports.length ? 'Gerar nova versão' : 'Gerar relatório PDF'}</button>` : ''}
       </div>
     </div>
-    ${active ? `<p style="margin-top:14px"><span class="badge blue">${JOB_LABEL[active.status]}</span> <span class="small muted">Solicitado em ${dtt(active.requested_at)}. A página atualiza sozinha assim que o PDF estiver pronto.</span></p>` : ''}
+    ${active ? `<p style="margin-top:14px"><span class="pill-dot blue">${JOB_LABEL[active.status]}</span> <span class="small muted">Solicitado em ${dtt(active.requested_at)}. A página atualiza sozinha assim que o PDF estiver pronto.</span></p>` : ''}
     ${lastFailed ? `<div class="alert show">A geração falhou${lastFailed.error_code ? ` (${esc(lastFailed.error_code)})` : ''}. ${isGestor ? '<button class="btn-sm ghost" id="retry" style="margin-left:8px">Tentar novamente</button>' : 'O Gestor pode tentar novamente.'}</div>` : ''}
-    ${reports.length ? `<div class="tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>Versão salva</th><th>Gerado em</th><th>Origem</th><th></th></tr></thead><tbody>
+    ${reports.length ? `<div class="tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>Versão salva</th><th>Gerado em</th><th>Origem</th><th style="text-align:right">Ações</th></tr></thead><tbody>
       ${reports.map((r, i) => `<tr>
-        <td><b>Relatório v${r.report_version}</b> ${i === 0 ? '<span class="badge green" style="margin-left:6px">Mais recente</span>' : ''}</td>
+        <td><b>Relatório v${r.report_version}</b> ${i === 0 ? '<span class="pill-dot green" style="margin-left:6px">Mais recente</span>' : ''}</td>
         <td class="small">${dtt(r.generated_at)}</td>
         <td class="small muted">${r.provider === 'local' ? 'Gerador local' : esc(r.model_name)}</td>
-        <td>${canPdf ? `<div class="row"><a class="btn-sm ghost" href="/api/v1/reports/${r.id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF</a><a class="btn-sm ghost" href="/api/v1/reports/${r.id}/pdf">Baixar PDF</a></div>` : '<span class="small muted">Disponível ao Gestor</span>'}</td>
+        <td>${canPdf ? `<div class="row" style="justify-content:flex-end"><a class="btn-sm ghost" href="/api/v1/reports/${r.id}/pdf?inline=1" target="_blank" rel="noopener">Abrir PDF</a><a class="btn-sm soft" href="/api/v1/reports/${r.id}/pdf">Baixar PDF</a></div>` : '<span class="small muted">Disponível ao Gestor</span>'}</td>
       </tr>`).join('')}
     </tbody></table></div>` : ''}
-    ${jobs.length ? `<details style="margin-top:14px"><summary class="small muted" style="cursor:pointer">Histórico de solicitações</summary><div class="tbl-wrap"><table class="tbl"><tbody>${jobs.map((j) => `<tr><td class="small">${dtt(j.requested_at)}</td><td><span class="badge ${JOB_BADGE[j.status]}">${JOB_LABEL[j.status]}</span></td><td class="small muted">${j.attempt_count} tentativa(s)${j.error_code ? ` · ${esc(j.error_code)}` : ''}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
+    ${jobs.length ? `<details style="margin-top:14px"><summary class="small muted" style="cursor:pointer">Histórico de solicitações</summary><div class="tbl-wrap"><table class="tbl"><tbody>${jobs.map((j) => `<tr><td class="small">${dtt(j.requested_at)}</td><td><span class="pill-dot ${JOB_BADGE[j.status]}">${JOB_LABEL[j.status]}</span></td><td class="small muted">${j.attempt_count} tentativa(s)${j.error_code ? ` · ${esc(j.error_code)}` : ''}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
   </section>`;
 
   $('#req')?.addEventListener('click', async (e) => {

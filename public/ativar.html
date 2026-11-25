@@ -8,26 +8,50 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Manrope:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 </head>
-<body data-page="ativar">
-<div class="auth-wrap">
-<aside class="auth-side">
-  <a class="logo" href="/"><img src="/img/logo.svg" width="26" height="26" alt=""> <span>Prisma<b>TI</b></span></a>
-  <div><span class="eyebrow" style="color:#b9c8e6">Diagnóstico inteligente de TI</span>
-  <h2>Clareza para decidir.<br><span class="hl-soft">Direção para evoluir.</span></h2>
-  <p>O acesso ao PrismaTI é liberado para empresas contratantes, por convite individual enviado por e-mail.</p></div>
-  <p class="small">© 2026 PrismaTI · <a href="/privacidade.html" style="color:#cfe0ff">Privacidade e uso de dados</a></p>
-</aside>
-<main class="auth-main">
-<form class="auth-card" id="form" novalidate>
-  <h1>Ativar conta</h1><p class="muted" id="inv-info">Validando seu convite...</p>
-  <div class="field"><label for="name">Seu nome</label><input id="name" name="name" autocomplete="name" required></div>
-  <div class="field"><label for="password">Crie uma senha</label><input id="password" name="password" type="password" autocomplete="new-password" required><div class="hint">Mínimo de 10 caracteres, com letras e números.</div></div>
-  <div class="field"><label for="password2">Confirme a senha</label><input id="password2" name="password2" type="password" autocomplete="new-password" required></div>
-  <p class="small muted">Ao ativar, você concorda com o uso dos dados descrito em <a href="/privacidade.html" target="_blank" style="color:var(--blue-2)">Privacidade e uso de dados</a>, incluindo o processamento das respostas por inteligência artificial para gerar o relatório.</p>
-  <div class="alert"></div>
-  <button class="btn btn-block" type="submit">Ativar e entrar</button>
-</form>
-</main>
+<body class="auth-page" data-page="ativar">
+<div class="auth-shell">
+  <section class="auth-left">
+    <div class="auth-inner">
+      <a class="auth-brand" href="/"><img src="/img/logo.svg" width="30" height="30" alt=""> <span>Prisma<b>TI</b></span></a>
+      <span class="auth-eyebrow">Convite corporativo</span>
+      <h1>Ativar sua<br><span>conta</span></h1>
+      <p class="auth-sub" id="inv-info">Validando seu convite...</p>
+      <form id="form" novalidate>
+        <div class="field"><label for="name">Seu nome</label><input id="name" name="name" autocomplete="name" required></div>
+        <div class="field">
+          <label for="password">Crie uma senha</label>
+          <div class="pw-wrap">
+            <input id="password" name="password" type="password" autocomplete="new-password" required>
+            <button type="button" class="pw-eye" data-toggle-pw="password" aria-label="Mostrar ou ocultar senha"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div class="hint">Mínimo de 10 caracteres, com letras maiúsculas, minúsculas e números.</div>
+        </div>
+        <div class="field">
+          <label for="password2">Confirme a senha</label>
+          <div class="pw-wrap">
+            <input id="password2" name="password2" type="password" autocomplete="new-password" required>
+            <button type="button" class="pw-eye" data-toggle-pw="password2" aria-label="Mostrar ou ocultar confirmação"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+        <p class="small muted" style="margin-bottom:12px">Ao ativar, você concorda com <a href="/privacidade.html" target="_blank" style="color:#1769ff">Privacidade e uso de dados</a>.</p>
+        <div class="alert"></div>
+        <button class="auth-submit" type="submit">
+          <span>Ativar e entrar</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+    </div>
+  </section>
+  <aside class="auth-right" aria-hidden="true">
+    <div class="auth-ring r1"></div>
+    <div class="auth-ring r2"></div>
+    <div class="auth-glass g1"></div>
+    <div class="auth-glass g2"></div>
+    <div class="auth-prism-box">
+      <img class="auth-prism-img" src="/img/login-prism.svg" alt="">
+      <div class="auth-caption">Inteligência para<strong>evoluir sua TI.</strong></div>
+    </div>
+  </aside>
 </div>
 <script type="module" src="/js/auth.js"></script>
 </body>
