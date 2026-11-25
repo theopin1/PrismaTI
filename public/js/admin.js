@@ -153,7 +153,7 @@ async function companyDetail(pane, id) {
 
 // ---------- Usuários ----------
 async function viewUsuarios(pane, p = 1, q = '') {
-  pane.innerHTML = `<section class="box"><div class="row"><input id="q" class="search-input" placeholder="Buscar por nome ou e-mail" value="${esc(q)}" style="max-width:320px"><span class="spacer"></span><button class="btn-sm primary" id="new-admin">Novo administrador</button></div>
+  pane.innerHTML = `<section class="box"><div class="row"><input id="q" class="search-input" placeholder="Buscar por nome ou e-mail" value="${esc(q)}" style="max-width:320px"><span class="spacer"></span><button class="btn-sm primary" id="new-user">Novo usuário</button></div>
     <div id="tbl-area" style="margin-top:16px"><p class="muted">Carregando...</p></div></section>`;
   let curPage = p;
   async function loadUsers(page = 1) {
@@ -184,21 +184,44 @@ async function viewUsuarios(pane, p = 1, q = '') {
     }));
   }
   $('#q', pane).addEventListener('input', debounce(() => loadUsers(1)));
-  $('#new-admin', pane).addEventListener('click', () => {
-    const m = modal(`<h3>Novo administrador</h3><p class="small muted">Cria um usuário administrador com acesso global. Ele receberá um link para definir a senha.</p>
-      <form id="af" style="margin-top:14px">${field('name', 'Nome *', 'required')}${field('email', 'E-mail *', 'type="email" required')}<div class="alert"></div>
-      <div class="row" style="justify-content:flex-end"><button type="button" class="btn-sm ghost" data-close>Cancelar</button><button class="btn-sm primary">Criar administrador</button></div></form>`);
-    const f = $('#af', m.el);
+  $('#new-user', pane).addEventListener('click', async () => {
+    let activeCos = [];
+    try {
+      const cos = await get('/admin/companies?pageSize=100');
+      activeCos = cos.items.filter((c) => c.status === 'ACTIVE');
+    } catch (e) {
+      return toast(e.message, true);
+    }
+    const m = modal(`<h3>Novo usuário</h3><p class="small muted">Cria uma conta de acesso (empresário/gestor, TI ou administrador) e gera o link para definição da senha.</p>
+      <form id="uf" style="margin-top:14px">${field('name', 'Nome *', 'required')}${field('email', 'E-mail *', 'type="email" required')}
+      ${select('role', 'Perfil *', [['GESTOR', 'Gestor da Empresa (Empresário)'], ['TI', 'Responsável de TI (somente leitura)'], ['ADMIN', 'Administrador da plataforma']], 'GESTOR')}
+      <div id="company-wrap">${select('company_id', 'Empresa *', [['', 'Selecione a empresa'], ...activeCos.map((c) => [c.id, c.trade_name || c.legal_name])])}${!activeCos.length ? '<div class="hint" style="color:var(--bad);margin-top:-8px;margin-bottom:10px">Nenhuma empresa ativa cadastrada. Cadastre uma empresa antes ou escolha Administrador.</div>' : ''}</div>
+      <div class="alert"></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn-sm ghost" data-close>Cancelar</button><button class="btn-sm primary">Criar usuário</button></div></form>`);
+    const f = $('#uf', m.el);
+    const roleSel = f.elements.role;
+    const compWrap = $('#company-wrap', m.el);
+    const compSel = f.elements.company_id;
+    const syncRole = () => {
+      const isAdmin = roleSel.value === 'ADMIN';
+      compWrap.style.display = isAdmin ? 'none' : '';
+      compSel.required = !isAdmin;
+      if (isAdmin) compSel.value = '';
+    };
+    roleSel.addEventListener('change', syncRole);
+    syncRole();
     f.addEventListener('submit', async (e) => {
       e.preventDefault(); clearFormErrors(f);
+      const payload = formData(f);
+      if (payload.role === 'ADMIN') delete payload.company_id;
       try {
-        const r = await post('/admin/admins', formData(f));
+        const r = await post('/admin/users', payload);
         m.close();
         loadUsers(1);
         if (r.setup_link) {
-          modal(`<h3>Administrador criado</h3><p class="small muted">E-mail não configurado neste ambiente. Repasse o link de definição de senha:</p><p style="margin-top:12px"><span class="code">${esc(r.setup_link)}</span></p><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn-sm primary" data-close>Fechar</button></div>`);
+          modal(`<h3>Usuário criado (${esc(ROLE_LABEL[r.role] || r.role)})</h3><p class="small muted">E-mail não configurado neste ambiente. Repasse o link de definição de senha:</p><p style="margin-top:12px"><span class="code">${esc(r.setup_link)}</span></p><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn-sm primary" data-close>Fechar</button></div>`);
         } else {
-          toast('Administrador criado e convite enviado por e-mail.');
+          toast('Usuário criado e link enviado por e-mail.');
         }
       } catch (err) { showFormErrors(f, err); }
     });

@@ -309,6 +309,22 @@ paths:
     patch: { tags: [Administração], parameters: [{ $ref: '#/components/parameters/id' }], summary: Ativa ou inativa (preserva histórico e encerra sessões), requestBody: { content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [ACTIVE, INACTIVE] } } } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
   /admin/users:
     get: { tags: [Administração], parameters: [{ name: q, in: query, schema: { type: string } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }], summary: Lista usuários, responses: { '200': { description: OK } } }
+    post:
+      tags: [Administração]
+      summary: Cria usuário (ADMIN, GESTOR ou TI; para GESTOR/TI exige company_id ativo) e gera link de definição de senha
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, role]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                role: { type: string, enum: [ADMIN, GESTOR, TI] }
+                company_id: { type: string }
+      responses: { '201': { description: Criado }, '400': { $ref: '#/components/responses/Error' } }
   /admin/admins:
     post: { tags: [Administração], summary: Cria administrador da plataforma e gera link para definição de senha, responses: { '201': { description: Criado } } }
   /admin/users/{id}/status:

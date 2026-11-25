@@ -119,28 +119,75 @@ r.patch('/users/:id/status', (req, res) => {
   res.json({ ok: true });
 });
 
-r.post('/admins', async (req, res) => {
-  const b = parse(z.object({
-    name: z.string().trim().min(2, 'Informe o nome.').max(120),
-    email: z.string().trim().toLowerCase().email('Informe um e-mail válido.').max(200),
-  }), req.body);
-  if (one('SELECT 1 FROM users WHERE email = ?', b.email)) {
+async function createManagedUser(req, { name, email, role, company_id }) {
+  if (one('SELECT 1 FROM users WHERE email = ?', email)) {
     throw badRequest('Este e-mail já está cadastrado.', { email: 'E-mail já utilizado.' });
   }
   const userId = uuid();
   const token = randomToken();
   const now = nowIso();
-  tx(() => {
-    run('INSERT INTO users (id, name, email, password_hash, account_status, is_platform_admin, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)',
-      userId, b.name, b.email, hashPassword(randomToken(16) + 'A1'), 'ACTIVE', 1, now, now);
-    run('INSERT INTO password_resets (id, user_id, token_hash, expires_at, created_at) VALUES (?,?,?,?,?)',
-      uuid(), userId, sha256(token), addMinutes(config.inviteHours * 60), now);
-  });
   const link = `${config.baseUrl}/redefinir.html#token=${token}`;
-  const mail = resetMail({ name: b.name, link, minutes: config.inviteHours * 60 });
-  const sent = await sendMail({ to: b.email, ...mail });
-  audit(req, 'admin.created_user', { entityType: 'user', entityId: userId, metadata: { email: b.email } });
-  res.status(201).json({ ok: true, id: userId, delivered: sent.delivered, setup_link: sent.delivered || config.env === 'production' ? undefined : link });
+  let company = null;
+
+  if (role === 'ADMIN') {
+    tx(() => {
+      run('INSERT INTO users (id, name, email, password_hash, account_status, is_platform_admin, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)',
+        userId, name, email, hashPassword(randomToken(16) + 'A1'), 'ACTIVE', 1, now, now);
+      run('INSERT INTO password_resets (id, user_id, token_hash, expires_at, created_at) VALUES (?,?,?,?,?)',
+        uuid(), userId, sha256(token), addMinutes(config.inviteHours * 60), now);
+    });
+  } else {
+    if (!company_id) throw badRequest('Selecione a empresa.', { company_id: 'Selecione a empresa.' });
+    company = one('SELECT * FROM companies WHERE id = ?', company_id);
+    if (!company) throw notFound('Empresa não encontrada.');
+    if (company.status !== 'ACTIVE') throw badRequest('A empresa está inativa.', { company_id: 'Selecione uma empresa ativa.' });
+    if (role === 'GESTOR') {
+      const g = one(`SELECT 1 FROM company_memberships WHERE company_id = ? AND role = 'GESTOR' AND status = 'ACTIVE'`, company.id);
+      const pendingG = one(`SELECT 1 FROM invitations WHERE company_id = ? AND role = 'GESTOR' AND status = 'PENDING' AND expires_at > ? AND email <> ?`, company.id, now, email);
+      if (g || pendingG) throw badRequest('A empresa já possui um Gestor ativo ou convidado.', { role: 'Apenas um Gestor por empresa.' });
+    }
+    tx(() => {
+      run('INSERT INTO users (id, name, email, password_hash, account_status, is_platform_admin, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)',
+        userId, name, email, hashPassword(randomToken(16) + 'A1'), 'ACTIVE', 0, now, now);
+      run('INSERT INTO company_memberships (id, company_id, user_id, role, status, created_at) VALUES (?,?,?,?,?,?)',
+        uuid(), company.id, userId, role, 'ACTIVE', now);
+      run(`UPDATE invitations SET status = 'REVOKED' WHERE company_id = ? AND email = ? AND status = 'PENDING'`, company.id, email);
+      run('INSERT INTO password_resets (id, user_id, token_hash, expires_at, created_at) VALUES (?,?,?,?,?)',
+        uuid(), userId, sha256(token), addMinutes(config.inviteHours * 60), now);
+    });
+  }
+
+  const mail = role === 'ADMIN'
+    ? resetMail({ name, link, minutes: config.inviteHours * 60 })
+    : inviteMail({ name, companyName: company.trade_name || company.legal_name, role, link, hours: config.inviteHours });
+  const sent = await sendMail({ to: email, ...mail });
+  audit(req, 'admin.created_user', { companyId: company?.id, entityType: 'user', entityId: userId, metadata: { email, role } });
+  return {
+    ok: true,
+    id: userId,
+    role,
+    company_id: company?.id || null,
+    delivered: sent.delivered,
+    setup_link: sent.delivered || config.env === 'production' ? undefined : link,
+  };
+}
+
+r.post('/users', async (req, res) => {
+  const b = parse(z.object({
+    name: z.string().trim().min(2, 'Informe o nome.').max(120),
+    email: z.string().trim().toLowerCase().email('Informe um e-mail válido.').max(200),
+    role: z.enum(['ADMIN', 'GESTOR', 'TI'], { message: 'Selecione um perfil válido.' }),
+    company_id: z.string().trim().optional().default(''),
+  }), req.body);
+  res.status(201).json(await createManagedUser(req, b));
+});
+
+r.post('/admins', async (req, res) => {
+  const b = parse(z.object({
+    name: z.string().trim().min(2, 'Informe o nome.').max(120),
+    email: z.string().trim().toLowerCase().email('Informe um e-mail válido.').max(200),
+  }), req.body);
+  res.status(201).json(await createManagedUser(req, { ...b, role: 'ADMIN' }));
 });
 
 r.post('/users/:id/reset-password', async (req, res) => {

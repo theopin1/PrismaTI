@@ -400,7 +400,7 @@ test('Rascunho do questionário permite criar dimensão, adicionar e excluir per
   assert.equal(afterDel.questions.length, 30);
 });
 
-test('Criação de novo administrador e redefinição de senha assistida pelo admin', async () => {
+test('Criação de usuários por perfil (ADMIN, GESTOR, TI) e redefinição de senha assistida', async () => {
   const created = await admin.post(`${API}/admin/admins`, { name: 'Segundo Admin', email: 'admin2@prismati.test' });
   assert.equal(created.status, 201);
   assert.ok(created.data.setup_link);
@@ -415,7 +415,40 @@ test('Criação de novo administrador e redefinição de senha assistida pelo ad
   assert.ok(reset.data.reset_link);
   const tok2 = tokenOf(reset.data.reset_link);
   assert.equal((await client(srv.base).post(`${API}/auth/password/reset`, { token: tok2, password: 'Admin2Nova123' })).status, 200);
-  assert.equal((await client(srv.base).login('admin2@prismati.test', 'Admin2Nova123')).status, 200);
+
+  // Novo usuário via POST /admin/users com seleção de perfil
+  const noComp = await admin.post(`${API}/admin/users`, { name: 'Sem Empresa', email: 'semcomp@prismati.test', role: 'GESTOR' });
+  assert.equal(noComp.status, 400);
+  assert.ok(noComp.data.error.fields.company_id);
+
+  const compC = await admin.post(`${API}/admin/companies`, { legal_name: 'Empresa C', trade_name: 'Empresa C' });
+  assert.equal(compC.status, 201);
+
+  const gCRes = await admin.post(`${API}/admin/users`, { name: 'Gestor C', email: 'gestorc@prismati.test', role: 'GESTOR', company_id: compC.data.id });
+  assert.equal(gCRes.status, 201);
+  assert.equal(gCRes.data.role, 'GESTOR');
+  assert.equal(gCRes.data.company_id, compC.data.id);
+  assert.ok(gCRes.data.setup_link);
+
+  const gCDup = await admin.post(`${API}/admin/users`, { name: 'Outro Gestor', email: 'gestorc2@prismati.test', role: 'GESTOR', company_id: compC.data.id });
+  assert.equal(gCDup.status, 400);
+  assert.ok(gCDup.data.error.fields.role);
+
+  const tiCRes = await admin.post(`${API}/admin/users`, { name: 'TI C', email: 'tic@prismati.test', role: 'TI', company_id: compC.data.id });
+  assert.equal(tiCRes.status, 201);
+  assert.equal(tiCRes.data.role, 'TI');
+
+  const adm3Res = await admin.post(`${API}/admin/users`, { name: 'Admin 3', email: 'admin3@prismati.test', role: 'ADMIN' });
+  assert.equal(adm3Res.status, 201);
+  assert.equal(adm3Res.data.role, 'ADMIN');
+  assert.equal(adm3Res.data.company_id, null);
+
+  const gCClient = client(srv.base);
+  assert.equal((await gCClient.post(`${API}/auth/password/reset`, { token: tokenOf(gCRes.data.setup_link), password: 'GestorCSenha123' })).status, 200);
+  assert.equal((await gCClient.login('gestorc@prismati.test', 'GestorCSenha123')).status, 200);
+  const meC = await gCClient.get(`${API}/auth/me`);
+  assert.equal(meC.data.role, 'GESTOR');
+  assert.equal(meC.data.company.id, compC.data.id);
 });
 
 test('RNF-005 · bloqueio após tentativas de login incorretas', async () => {
