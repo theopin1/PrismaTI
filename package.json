@@ -4,6 +4,7 @@
   "private": true,
   "description": "PrismaTI - diagnóstico inicial de maturidade em TI para PMEs",
   "type": "module",
+  "main": "src/server.js",
   "engines": {
     "node": ">=22.13"
   },

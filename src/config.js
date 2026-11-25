@@ -25,7 +25,7 @@ const bool = (v, d) => (v === undefined || v === '' ? d : ['1', 'true', 'yes', '
 
 export const config = {
   env: env.NODE_ENV || 'development', // development | homologacao | production
-  port: int(env.PORT, 3000),
+  port: env.PORT ? (/^\d+$/.test(env.PORT) ? Number.parseInt(env.PORT, 10) : env.PORT) : 3000,
   baseUrl: env.BASE_URL || `http://localhost:${int(env.PORT, 3000)}`,
   dbFile: path.resolve(ROOT, env.DB_FILE || 'storage/prismati.db'),
   storageDir: path.resolve(ROOT, env.STORAGE_DIR || 'storage'),
