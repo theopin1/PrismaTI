@@ -8,7 +8,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(method, path, body, { form = false } = {}) {
+export async function api(method, path, body, { form = false, silentAuth = false } = {}) {
   const opts = { method, headers: { 'X-PrismaTI': '1' }, credentials: 'same-origin' };
   if (body !== undefined) {
     if (form) opts.body = body;
@@ -21,7 +21,7 @@ export async function api(method, path, body, { form = false } = {}) {
   const text = await res.text();
   let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = null; }
   if (!res.ok) {
-    if (res.status === 401 && !location.pathname.match(/entrar|ativar|esqueci|redefinir/)) {
+    if (!silentAuth && res.status === 401 && !location.pathname.match(/entrar|ativar|esqueci|redefinir/)) {
       location.href = `/entrar.html?voltar=${encodeURIComponent(location.pathname + location.search)}`;
     }
     throw new ApiError(res.status, data);
@@ -76,16 +76,24 @@ export const LEVEL_COLOR = (p) => (p === null || p === undefined ? '#c3cde0' : p
 
 const LOGO = '<a class="logo" href="/"><img src="/img/logo.svg" width="24" height="24" alt=""> <span>Prisma<b>TI</b></span></a>';
 
-// Cabeçalho das páginas logadas; devolve o usuário atual
-export async function mountHeader(active) {
-  const me = await get('/auth/me');
+// Cabeçalho das páginas logadas; devolve o usuário atual (ou null se optional=true e sem sessão)
+export async function mountHeader(active, { optional = false } = {}) {
+  let me;
+  try {
+    me = await api('GET', '/auth/me', undefined, { silentAuth: optional });
+  } catch (err) {
+    if (optional) return null;
+    throw err;
+  }
+  const home = me.is_platform_admin ? '/admin.html' : '/painel.html';
   const links = me.is_platform_admin
     ? [['admin', '/admin.html', 'Administração']]
     : [['painel', '/painel.html', 'Painel']];
+  document.querySelector('header.app-header')?.remove();
   const header = document.createElement('header');
   header.className = 'app-header';
-  header.innerHTML = `<div class="container nav">${LOGO}
-    <nav class="app-nav">${links.map(([k, h, t]) => `<a href="${h}" class="${k === active ? 'active' : ''}">${t}</a>`).join('')}<a href="/privacidade.html">Privacidade</a></nav>
+  header.innerHTML = `<div class="container nav"><a class="logo" href="${home}"><img src="/img/logo.svg" width="24" height="24" alt=""> <span>Prisma<b>TI</b></span></a>
+    <nav class="app-nav">${links.map(([k, h, t]) => `<a href="${h}" class="${k === active ? 'active' : ''}">${t}</a>`).join('')}<a href="/privacidade.html" class="${active === 'privacidade' ? 'active' : ''}">Privacidade</a></nav>
     <div class="row"><div class="user-chip"><div><b>${esc(me.name)}</b>${esc(ROLE_LABEL[me.role])}${me.company ? ` · ${esc(me.company.name)}` : ''}</div></div>
     <button class="btn-sm ghost" id="logout">Sair</button></div></div>`;
   document.body.prepend(header);
